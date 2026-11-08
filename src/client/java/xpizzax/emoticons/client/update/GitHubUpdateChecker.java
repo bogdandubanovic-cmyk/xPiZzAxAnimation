@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.jar.JarFile;
+import xpizzax.updater.UpdateInstaller;
 
 public final class GitHubUpdateChecker {
     private static final String REPO = "bogdandubanovic-cmyk/xPiZzAxAnimation";
