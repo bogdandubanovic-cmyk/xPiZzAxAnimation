@@ -187,7 +187,6 @@ public final class PoseRenderer {
         if(!firstPerson)tick(entity);
         // Catch interactions that begin between END_CLIENT_TICK callbacks; the
         // vanilla model has already computed this frame's partial-tick context.
-        animator.observeHandSwing(entity, delta);
         rig.resetPose();animator.applyActions(entity,rig,delta);
         rig.setupMatrices();
         for(String name:BONES){Rig.Bone bone=rig.bones.get(name);if(bone!=null)deltas.get(name).identity().rotateY((float)Math.PI).mul(bone.mat).mul(inverseBinds.get(name));}
