@@ -26,8 +26,6 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # ReplayMod is an optional runtime integration, but its API is needed
-      # to compile the Replay bridge/mixins. Fetch the exact 1.20.4 build for CI.
       - name: Download ReplayMod compile dependency
         run: |
           mkdir -p libs
@@ -63,5 +61,6 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             build/libs/xPiZzAxAnimation.jar \
+            --target "$GITHUB_SHA" \
             --title "xPiZzAxAnimation $GITHUB_REF_NAME" \
             --generate-notes
