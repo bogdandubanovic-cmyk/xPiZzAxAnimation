@@ -45,9 +45,7 @@ public class Animator
     public double prevZ = Float.MAX_VALUE;
     public double prevY;
     public double prevMY;
-    private boolean wasHandSwinging;
-    private float lastHandSwingProgress;
-    private boolean hasHandSwingProgress;
+    public float prevHandSwing;
 
     /* States */
     public boolean wasOnGround = true;
@@ -94,9 +92,7 @@ public class Animator
 
         if (!fade)
         {
-            this.wasHandSwinging = false;
-            this.lastHandSwingProgress = 0.0F;
-            this.hasHandSwingProgress = false;
+            this.prevHandSwing = 0F;
             this.active = null;
             this.lastActive = null;
             this.setActiveAction(this.idle);
@@ -293,7 +289,19 @@ public class Animator
             this.jumpingCounter += 1;
         }
 
-        this.observeHandSwing(target, 1.0F);
+        float handSwingProgress = target.getHandSwingProgress(0F);
+
+        if (handSwingProgress < this.prevHandSwing)
+        {
+            this.prevHandSwing = 0F;
+        }
+
+        if (handSwingProgress > 0F && this.prevHandSwing == 0F)
+        {
+            this.addAction(this.swipe);
+        }
+
+        this.prevHandSwing = handSwingProgress;
 
         this.prevX = target.getX();
         this.prevZ = target.getZ();
@@ -301,33 +309,6 @@ public class Animator
         this.prevMY = velocity.y;
 
         this.wasOnGround = target.isOnGround();
-    }
-
-    /**
-     * Observe the same swing state used by vanilla PlayerEntityModel. Some server
-     * interactions (notably petting while sneaking) expose a non-zero interpolated
-     * swing before the next client tick sees handSwinging. Sample both signals and
-     * call this from the model render path as well as the tick path.
-     */
-    public void observeHandSwing(LivingEntity target, float tickDelta)
-    {
-        float progress = target.getHandSwingProgress(tickDelta);
-        boolean swinging = target.handSwinging || progress > 1.0E-4F;
-
-        // A second vanilla swing can restart while handSwinging remains true.
-        // Detect the progress wrap as a new click instead of waiting for the
-        // previous swing flag to become false.
-        boolean restarted = swinging && this.wasHandSwinging && this.hasHandSwingProgress
-                && progress + 0.05F < this.lastHandSwingProgress;
-
-        if (swinging && (!this.wasHandSwinging || restarted))
-        {
-            this.addAction(this.swipe);
-        }
-
-        this.wasHandSwinging = swinging;
-        this.lastHandSwingProgress = progress;
-        this.hasHandSwingProgress = swinging;
     }
 
     /**
