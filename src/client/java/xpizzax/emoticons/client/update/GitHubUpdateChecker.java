@@ -128,27 +128,97 @@ public final class GitHubUpdateChecker {
             log("Automatic replacement is currently configured for Windows only.");
             return;
         }
+
         Path dir = FabricLoader.getInstance().getConfigDir().resolve("xpizzaxanimation");
         Files.createDirectories(dir);
         Path script = dir.resolve("apply-update.ps1");
-        String ps = "param([long]$PidToWait,[string]$Target,[string]$Staged)\n" +
-                "$ErrorActionPreference='Stop'\n" +
-                "while(Get-Process -Id $PidToWait -ErrorAction SilentlyContinue){Start-Sleep -Milliseconds 700}\n" +
-                "if(!(Test-Path -LiteralPath $Staged)){exit 2}\n" +
-                "$Backup=$Target+'.xpa-backup'\n" +
-                "try{if(Test-Path -LiteralPath $Backup){Remove-Item -LiteralPath $Backup -Force};" +
-                "if(Test-Path -LiteralPath $Target){Move-Item -LiteralPath $Target -Destination $Backup};" +
-                "Move-Item -LiteralPath $Staged -Destination $Target;" +
-                "if(Test-Path -LiteralPath $Backup){Remove-Item -LiteralPath $Backup -Force}}" +
-                "catch{if(Test-Path -LiteralPath $Target){Remove-Item -LiteralPath $Target -Force -ErrorAction SilentlyContinue};" +
-                "if(Test-Path -LiteralPath $Backup){Move-Item -LiteralPath $Backup -Destination $Target -Force -ErrorAction SilentlyContinue};exit 3}\n";
+        Path logFile = dir.resolve("apply-update.log");
+
+        // The helper is detached from Minecraft and waits for this exact game
+        // process to exit. It then retries the replacement and keeps a rollback
+        // copy until the new JAR is verified at the destination.
+        String ps = """
+                param(
+                    [long]$WaitForProcessId,
+                    [string]$Target,
+                    [string]$Staged,
+                    [string]$LogFile
+                )
+                $ErrorActionPreference = 'Stop'
+                function Write-Log([string]$Message) {
+                    try {
+                        Add-Content -LiteralPath $LogFile -Value ("[{0}] {1}" -f (Get-Date -Format o), $Message)
+                    } catch {}
+                }
+
+                Write-Log "Updater helper started. Waiting for Minecraft PID $WaitForProcessId."
+                while ($true) {
+                    $running = Get-Process -Id $WaitForProcessId -ErrorAction SilentlyContinue
+                    if ($null -eq $running) { break }
+                    Start-Sleep -Milliseconds 800
+                }
+                Write-Log "Minecraft process exited. Installing staged JAR."
+
+                $Backup = $Target + '.xpa-backup'
+                for ($Attempt = 1; $Attempt -le 30; $Attempt++) {
+                    try {
+                        if (!(Test-Path -LiteralPath $Staged -PathType Leaf)) {
+                            throw "Staged update not found: $Staged"
+                        }
+
+                        if (Test-Path -LiteralPath $Backup) {
+                            Remove-Item -LiteralPath $Backup -Force
+                        }
+                        if (Test-Path -LiteralPath $Target) {
+                            Move-Item -LiteralPath $Target -Destination $Backup -Force
+                        }
+
+                        try {
+                            Move-Item -LiteralPath $Staged -Destination $Target -Force
+                            if (!(Test-Path -LiteralPath $Target -PathType Leaf)) {
+                                throw 'New JAR was not created at target path.'
+                            }
+                            if ((Get-Item -LiteralPath $Target).Length -le 0) {
+                                throw 'New JAR is empty.'
+                            }
+                            if (Test-Path -LiteralPath $Backup) {
+                                Remove-Item -LiteralPath $Backup -Force
+                            }
+                            Write-Log "SUCCESS: update installed at $Target"
+                            exit 0
+                        }
+                        catch {
+                            if (Test-Path -LiteralPath $Target) {
+                                Remove-Item -LiteralPath $Target -Force -ErrorAction SilentlyContinue
+                            }
+                            if (Test-Path -LiteralPath $Backup) {
+                                Move-Item -LiteralPath $Backup -Destination $Target -Force -ErrorAction SilentlyContinue
+                            }
+                            throw
+                        }
+                    }
+                    catch {
+                        Write-Log ("Attempt {0}/30 failed: {1}" -f $Attempt, $_.Exception.Message)
+                        Start-Sleep -Seconds 2
+                    }
+                }
+
+                Write-Log "FAILED: could not install update after 30 attempts. Staged file was preserved."
+                exit 3
+                """;
+
         Files.writeString(script, ps, StandardCharsets.UTF_8);
-        new ProcessBuilder("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
-                "-File", script.toString(), "-PidToWait", Long.toString(ProcessHandle.current().pid()),
-                "-Target", target.toString(), "-Staged", staged.toString())
+        Process helper = new ProcessBuilder("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", script.toString(),
+                "-WaitForProcessId", Long.toString(ProcessHandle.current().pid()),
+                "-Target", target.toString(),
+                "-Staged", staged.toString(),
+                "-LogFile", logFile.toString())
                 .redirectInput(ProcessBuilder.Redirect.DISCARD)
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start();
+        log("Update installer helper started (PID " + helper.pid() + "). It will replace the JAR after Minecraft exits.");
     }
 
     private static String sha256(Path p) throws Exception {
