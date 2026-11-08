@@ -9,6 +9,7 @@ import xpizzax.emoticons.ui.emoticons.EmoticonsScreen;
 import xpizzax.emoticons.client.renderer.VanillaEmoticonsBridge;
 import xpizzax.emoticons.client.replay.RpmGenderReplay;
 import xpizzax.emoticons.client.RpmAccessoryHelper;
+import xpizzax.emoticons.client.update.GitHubUpdateChecker;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.minecraft.resource.ResourceManager;
@@ -19,6 +20,7 @@ import net.example.replaynv.ReplayState;
 import net.minecraft.client.MinecraftClient;
 public final class EmoticonsClient implements ClientModInitializer {
  @Override public void onInitializeClient(){
+  GitHubUpdateChecker.checkForUpdates();
   xpizzax.emoticons.client.EyeAnimationController.register();
   ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener(){
    @Override public Identifier getFabricId(){return new Identifier("xpizzax_emoticons","item_attachments");}
