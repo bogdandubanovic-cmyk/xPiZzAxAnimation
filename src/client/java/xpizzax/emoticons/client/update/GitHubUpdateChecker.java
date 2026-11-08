@@ -2,6 +2,8 @@ package xpizzax.emoticons.client.update;
 
 import com.google.gson.*;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.text.Text;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.http.*;
@@ -120,10 +122,31 @@ public final class GitHubUpdateChecker {
                 }
 
                 launchPortableInstaller(current, staged, latest);
-                log("Downloaded and verified " + tag + "; the Java installer will replace the mod after Minecraft closes.");
+                log("Downloaded and verified " + tag + "; requesting Minecraft restart so the installer can replace the old JAR.");
+                requestMinecraftRestart(latest);
             } catch (Exception e) {
                 log("Update check skipped safely: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             }
+        });
+    }
+
+    /**
+     * The old updater started a child installer that waited for Minecraft to exit,
+     * but never actually asked Minecraft to exit. That left every update pending
+     * forever. Notify the player, then close the game so the portable installer
+     * can replace the JAR before the next launch.
+     */
+    private static void requestMinecraftRestart(String version) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        client.execute(() -> {
+            String message = "xPiZzAxAnimation " + version
+                    + " downloaded. Launcher restart required; Minecraft will close in 5 seconds.";
+            if (client.player != null) {
+                client.player.sendMessage(Text.literal("[xPiZzAxAnimation] " + message), false);
+            }
+            log(message);
+            CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS).execute(
+                    () -> client.execute(client::scheduleStop));
         });
     }
 
