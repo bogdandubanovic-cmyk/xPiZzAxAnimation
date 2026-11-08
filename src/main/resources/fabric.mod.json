@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "xpizzaxanimation",
+  "version": "${version}",
+  "name": "xPiZzAxAnimation",
+  "description": "Player animations, animated eyes, customization, and Replay cinematic integrations for Minecraft 1.20.4.",
+  "authors": [
+    "xPiZzAx"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "xpizzax.emoticons.EmoticonsClient",
+      "net.example.replaynv.XPizzaXReplay",
+      "com.example.replaycarsbridge.ReplayCarsBridge"
+    ]
+  },
+  "mixins": [
+    "xpizzax.client.mixins.json",
+    "xpizzaxreplay-nv.mixins.json",
+    "replaycarsbridge.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "1.20.4",
+    "java": ">=17",
+    "fabric-api": "*",
+    "playeranimator": "*",
+    "bendy-lib": "*"
+  },
+  "suggests": {
+    "firstperson": "*",
+    "notenoughanimations": "*",
+    "entity_model_features": "*",
+    "entity_texture_features": "*",
+    "cars": "*",
+    "replaymod": "*"
+  },
+  "icon": "assets/rpmmodels/textures/gui/logo.png",
+  "breaks": {
+    "xpizzax_emoticons": "*"
+  }
+}

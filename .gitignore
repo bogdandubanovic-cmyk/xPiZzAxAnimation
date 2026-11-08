@@ -1,0 +1,18 @@
+# Gradle / build output
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Logs / crash reports
+logs/
+crash-reports/
+*.log
+
+# Local optional runtime dependencies
+libs/replaymod-*.jar
+libs/cars-*-runtime.jar

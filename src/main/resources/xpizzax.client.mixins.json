@@ -1,0 +1,33 @@
+{
+  "required": true,
+  "package": "xpizzax.emoticons.mixin.client",
+  "compatibilityLevel": "JAVA_17",
+  "client": [
+    "HeldItemFeatureRendererMixin",
+    "AnimatedHeldItemRendererMixin",
+    "PhotoHeldItemMixin",
+    "PhotoFirstPersonMixin",
+    "BipedEntityModelBendMixin",
+    "LivingEntityRendererFeaturesAccessor",
+    "PlayerEntityModelAccessor",
+    "VanillaEmoticonsRootMixin",
+    "VanillaEmoticonsPoseMixin",
+    "VanillaEmoticonsInventoryMixin",
+    "VanillaEmoticonsFeatureMixin",
+    "WildfireVanillaBendMixin",
+    "ReplayGenderRecordingMixin",
+    "ReplayWildfireConfigMixin",
+    "ReplayWildfireRenderMixin",
+    "PlayerEntityRendererMixin",
+    "BackAccessoryItemRendererMixin",
+    "ReplayGenderFrameMixin",
+    "ReplayGenderLifecycleMixin",
+    "ReplayGenderPlayerMixin",
+    "ReplayRpmProfilePacketsMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "refmap": "xpizzax.refmap.json",
+  "plugin": "xpizzax.emoticons.client.replay.RpmReplayMixinPlugin"
+}

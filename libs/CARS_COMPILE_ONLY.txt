@@ -1,0 +1,5 @@
+cars-5.3.5-compile-only.jar contains the original Cars 5.3.5 class files and metadata.
+It is a compile-only dependency; artwork and native binaries were removed to keep this source small.
+Never put this jar in Minecraft/mods and never include it in the unified runtime jar.
+Install the original Cars mod separately if you use cars. Cars remains optional at runtime.
+For runClient with Cars use -PcarsRuntimeJar=C:/path/to/the/original/cars-5.3.5.jar.

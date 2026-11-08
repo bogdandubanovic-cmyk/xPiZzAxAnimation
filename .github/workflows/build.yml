@@ -1,0 +1,67 @@
+name: Build xPiZzAxAnimation
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # ReplayMod is an optional runtime integration, but its API is needed
+      # to compile the Replay bridge/mixins. Fetch the exact 1.20.4 build for CI.
+      - name: Download ReplayMod compile dependency
+        run: |
+          mkdir -p libs
+          curl --fail --location --retry 3 \
+            "https://www.replaymod.com/download/download_new.php?version=1.20.4-2.6.15" \
+            --output libs/replaymod-1.20.4-2.6.15.jar
+          unzip -t libs/replaymod-1.20.4-2.6.15.jar >/dev/null
+
+      - name: Build remapped mod JAR
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            ./gradlew --no-daemon clean remapJar -Pmod_version="$VERSION"
+          else
+            ./gradlew --no-daemon clean remapJar
+          fi
+          test -s build/libs/xPiZzAxAnimation.jar
+
+      - name: Upload CI build
+        uses: actions/upload-artifact@v4
+        with:
+          name: xPiZzAxAnimation-${{ github.ref_name }}
+          path: build/libs/xPiZzAxAnimation.jar
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            build/libs/xPiZzAxAnimation.jar \
+            --title "xPiZzAxAnimation $GITHUB_REF_NAME" \
+            --generate-notes

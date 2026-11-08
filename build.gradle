@@ -1,0 +1,140 @@
+plugins { id 'fabric-loom' version '1.10.5' }
+
+
+version = project.mod_version + "-" + project.minecraft_version
+group = 'xpizzax'
+base { archivesName = 'xPiZzAxAnimation' }
+
+repositories {
+    mavenCentral()
+    maven { url "https://maven.fabricmc.net/" }
+    // Resolve the two bundled animation jars as module components. Loom 1.10
+    // needs module identity when generating nested-jar IDs (include files fails).
+    exclusiveContent {
+        forRepository {
+            flatDir {
+                name = "bundledAnimationLibraries"
+                dirs("libs")
+            }
+        }
+        filter { includeGroup("xpizzax.local") }
+    }
+}
+
+loom {
+    splitEnvironmentSourceSets()
+    mods {
+        xpizzaxanimation {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+    mixin {
+        useLegacyMixinAp = true
+        defaultRefmapName = "xpizzax.refmap.json"
+        add sourceSets.client, "xpizzax.refmap.json"
+    }
+}
+
+dependencies {
+    minecraft("com.mojang:minecraft:" + project.minecraft_version)
+    mappings("net.fabricmc:yarn:" + project.yarn_mappings + ":v2")
+    modImplementation("net.fabricmc:fabric-loader:" + project.loader_version)
+    modImplementation("net.fabricmc.fabric-api:fabric-api:" + project.fabric_version)
+    modImplementation("xpizzax.local:player-animation-lib:1.0.2-rc1+1.20.4") { transitive = false }
+    modImplementation("xpizzax.local:bendy-lib:4.1.0") { transitive = false }
+    include("xpizzax.local:player-animation-lib:1.0.2-rc1+1.20.4") { transitive = false }
+    include("xpizzax.local:bendy-lib:4.1.0") { transitive = false }
+
+
+    // ReplayMod stays external. Cars is only required to compile the bridge.
+    modCompileOnly files("libs/replaymod-1.20.4-2.6.15.jar", "libs/cars-5.3.5-compile-only.jar")
+    if (!project.hasProperty("withoutReplay")) {
+        modRuntimeOnly files("libs/replaymod-1.20.4-2.6.15.jar")
+    }
+    // The slim Cars jar contains compile-time classes only, never runtime assets.
+    // To run Cars in a dev client: -PcarsRuntimeJar=/absolute/path/to/cars-5.3.5.jar
+    if (project.hasProperty("carsRuntimeJar")) {
+        modRuntimeOnly files(project.property("carsRuntimeJar"))
+    }
+}
+
+
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = "UTF-8"
+}
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(17) }
+    withSourcesJar()
+}
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") { expand "version": project.version }
+
+}
+
+jar { from("LICENSE.md") }
+
+// A single generated refmap must cover both original client source trees.
+tasks.named("remapJar").configure {
+    archiveFileName.set("xPiZzAxAnimation.jar")
+    doLast {
+        def archive = new java.util.zip.ZipFile(archiveFile.get().asFile)
+        try {
+            // Verify that both real animation mods were physically nested.
+            def modEntry = archive.getEntry("fabric.mod.json")
+            if (modEntry == null) throw new GradleException("Missing fabric.mod.json")
+            def metadata = new groovy.json.JsonSlurper().parse(archive.getInputStream(modEntry))
+            if (metadata.depends.containsKey("replaymod") || !metadata.suggests.containsKey("replaymod"))
+                throw new GradleException("ReplayMod must remain optional")
+            def nestedModIds = [] as Set
+            def includedJars = metadata.jars ?: []
+            includedJars.each { nestedJar ->
+                def nestedEntry = archive.getEntry(nestedJar.file as String)
+                if (nestedEntry == null)
+                    throw new GradleException("Missing nested dependency " + nestedJar.file)
+                def nested = new java.util.zip.ZipInputStream(archive.getInputStream(nestedEntry))
+                try {
+                    def nestedFile
+                    while ((nestedFile = nested.getNextEntry()) != null) {
+                        if (nestedFile.name == "fabric.mod.json") {
+                            def nestedMetadata = new groovy.json.JsonSlurper().parseText(
+                                new String(nested.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8))
+                            nestedModIds.add(nestedMetadata.id)
+                            break
+                        }
+                    }
+                } finally { nested.close() }
+            }
+            ["playeranimator", "bendy-lib"].each { id ->
+                if (!nestedModIds.contains(id))
+                    throw new GradleException("Animation library was not nested: " + id)
+            }
+            if (nestedModIds.any { it.contains("jna") || it.contains("snakeyaml") })
+                throw new GradleException("Music dependency leaked into xPiZzAxAnimation")
+            if (archive.entries().toList().any { it.name.startsWith("spotifyplayer/") || it.name.contains("spotify-web-extension/") })
+                throw new GradleException("Music files leaked into xPiZzAxAnimation")
+            def entry = archive.getEntry("xpizzax.refmap.json")
+            if (entry == null) throw new GradleException("Missing unified xpizzax.refmap.json")
+            def refmap = new groovy.json.JsonSlurper().parse(archive.getInputStream(entry))
+            ["VanillaEmoticonsInventoryMixin", "ReplayGenderFrameMixin", "ReplayKeyboardMixin", "ReplayRainOpacityMixin", "ReplayTransportStandRendererMixin", "PhotoHeldItemMixin"].each { suffix ->
+                def mappings = refmap.mappings?.find { key, value -> key.endsWith(suffix) }?.value
+                if (mappings == null || mappings.isEmpty())
+                    throw new GradleException("Missing generated mappings for " + suffix)
+            }
+            ["xpizzax.client.mixins.json", "xpizzaxreplay-nv.mixins.json", "replaycarsbridge.mixins.json"].each { name ->
+                def configEntry = archive.getEntry(name)
+                if (configEntry == null) throw new GradleException("Missing mixin config " + name)
+                def config = new groovy.json.JsonSlurper().parse(archive.getInputStream(configEntry))
+                if (config.refmap != "xpizzax.refmap.json")
+                    throw new GradleException("Wrong refmap in " + name)
+            }
+        } finally { archive.close() }
+    }
+}
+
+tasks.named("remapSourcesJar").configure {
+    archiveFileName.set("xPiZzAxAnimation-sources.jar")
+}
