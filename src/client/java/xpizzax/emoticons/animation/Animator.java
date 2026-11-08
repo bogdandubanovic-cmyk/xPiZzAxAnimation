@@ -46,6 +46,8 @@ public class Animator
     public double prevY;
     public double prevMY;
     private boolean wasHandSwinging;
+    private float lastHandSwingProgress;
+    private boolean hasHandSwingProgress;
 
     /* States */
     public boolean wasOnGround = true;
@@ -93,6 +95,8 @@ public class Animator
         if (!fade)
         {
             this.wasHandSwinging = false;
+            this.lastHandSwingProgress = 0.0F;
+            this.hasHandSwingProgress = false;
             this.active = null;
             this.lastActive = null;
             this.setActiveAction(this.idle);
@@ -307,15 +311,23 @@ public class Animator
      */
     public void observeHandSwing(LivingEntity target, float tickDelta)
     {
-        boolean swinging = target.handSwinging
-                || target.getHandSwingProgress(tickDelta) > 1.0E-4F;
+        float progress = target.getHandSwingProgress(tickDelta);
+        boolean swinging = target.handSwinging || progress > 1.0E-4F;
 
-        if (swinging && !this.wasHandSwinging)
+        // A second vanilla swing can restart while handSwinging remains true.
+        // Detect the progress wrap as a new click instead of waiting for the
+        // previous swing flag to become false.
+        boolean restarted = swinging && this.wasHandSwinging && this.hasHandSwingProgress
+                && progress + 0.05F < this.lastHandSwingProgress;
+
+        if (swinging && (!this.wasHandSwinging || restarted))
         {
             this.addAction(this.swipe);
         }
 
         this.wasHandSwinging = swinging;
+        this.lastHandSwingProgress = progress;
+        this.hasHandSwingProgress = swinging;
     }
 
     /**
