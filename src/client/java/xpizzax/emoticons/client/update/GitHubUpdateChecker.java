@@ -77,7 +77,10 @@ public final class GitHubUpdateChecker {
                     log("Cannot locate installed JAR (development environment?)");
                     return;
                 }
-                Path staged = current.resolveSibling(current.getFileName() + ".xpa-update");
+                Path updateDir = FabricLoader.getInstance().getConfigDir()
+                        .resolve("xpizzaxanimation").resolve("updates");
+                Files.createDirectories(updateDir);
+                Path staged = updateDir.resolve("xPiZzAxAnimation-" + latest + ".jar");
                 Files.deleteIfExists(staged);
 
                 HttpRequest download = HttpRequest.newBuilder(URI.create(
@@ -115,110 +118,42 @@ public final class GitHubUpdateChecker {
                     return;
                 }
 
-                scheduleWindowsSwap(current, staged);
-                log("Downloaded and verified " + tag + "; it will be installed after Minecraft closes.");
+                launchPortableInstaller(current, staged, latest);
+                log("Downloaded and verified " + tag + "; the Java installer will replace the mod after Minecraft closes.");
             } catch (Exception e) {
                 log("Update check skipped safely: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             }
         });
     }
 
-    private static void scheduleWindowsSwap(Path target, Path staged) throws Exception {
-        if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
-            log("Automatic replacement is currently configured for Windows only.");
-            return;
+    private static void launchPortableInstaller(Path target, Path staged, String version) throws Exception {
+        Path config = FabricLoader.getInstance().getConfigDir().resolve("xpizzaxanimation");
+        Path classes = config.resolve("updater-runtime");
+        Path classFile = classes.resolve("xpizzax/updater/UpdateInstaller.class");
+        Files.createDirectories(classFile.getParent());
+
+        try (var in = UpdateInstaller.class.getResourceAsStream("/xpizzax/emoticons/client/update/UpdateInstaller.class")) {
+            if (in == null) throw new IllegalStateException("Embedded Java updater class is missing");
+            Files.copy(in, classFile, StandardCopyOption.REPLACE_EXISTING);
         }
 
-        Path dir = FabricLoader.getInstance().getConfigDir().resolve("xpizzaxanimation");
-        Files.createDirectories(dir);
-        Path script = dir.resolve("apply-update.ps1");
-        Path logFile = dir.resolve("apply-update.log");
+        Path logFile = config.resolve("update-installer.log");
+        boolean windows = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+        Path java = Path.of(System.getProperty("java.home"), "bin", windows ? "java.exe" : "java");
 
-        // The helper is detached from Minecraft and waits for this exact game
-        // process to exit. It then retries the replacement and keeps a rollback
-        // copy until the new JAR is verified at the destination.
-        String ps = """
-                param(
-                    [long]$WaitForProcessId,
-                    [string]$Target,
-                    [string]$Staged,
-                    [string]$LogFile
-                )
-                $ErrorActionPreference = 'Stop'
-                function Write-Log([string]$Message) {
-                    try {
-                        Add-Content -LiteralPath $LogFile -Value ("[{0}] {1}" -f (Get-Date -Format o), $Message)
-                    } catch {}
-                }
-
-                Write-Log "Updater helper started. Waiting for Minecraft PID $WaitForProcessId."
-                while ($true) {
-                    $running = Get-Process -Id $WaitForProcessId -ErrorAction SilentlyContinue
-                    if ($null -eq $running) { break }
-                    Start-Sleep -Milliseconds 800
-                }
-                Write-Log "Minecraft process exited. Installing staged JAR."
-
-                $Backup = $Target + '.xpa-backup'
-                for ($Attempt = 1; $Attempt -le 30; $Attempt++) {
-                    try {
-                        if (!(Test-Path -LiteralPath $Staged -PathType Leaf)) {
-                            throw "Staged update not found: $Staged"
-                        }
-
-                        if (Test-Path -LiteralPath $Backup) {
-                            Remove-Item -LiteralPath $Backup -Force
-                        }
-                        if (Test-Path -LiteralPath $Target) {
-                            Move-Item -LiteralPath $Target -Destination $Backup -Force
-                        }
-
-                        try {
-                            Move-Item -LiteralPath $Staged -Destination $Target -Force
-                            if (!(Test-Path -LiteralPath $Target -PathType Leaf)) {
-                                throw 'New JAR was not created at target path.'
-                            }
-                            if ((Get-Item -LiteralPath $Target).Length -le 0) {
-                                throw 'New JAR is empty.'
-                            }
-                            if (Test-Path -LiteralPath $Backup) {
-                                Remove-Item -LiteralPath $Backup -Force
-                            }
-                            Write-Log "SUCCESS: update installed at $Target"
-                            exit 0
-                        }
-                        catch {
-                            if (Test-Path -LiteralPath $Target) {
-                                Remove-Item -LiteralPath $Target -Force -ErrorAction SilentlyContinue
-                            }
-                            if (Test-Path -LiteralPath $Backup) {
-                                Move-Item -LiteralPath $Backup -Destination $Target -Force -ErrorAction SilentlyContinue
-                            }
-                            throw
-                        }
-                    }
-                    catch {
-                        Write-Log ("Attempt {0}/30 failed: {1}" -f $Attempt, $_.Exception.Message)
-                        Start-Sleep -Seconds 2
-                    }
-                }
-
-                Write-Log "FAILED: could not install update after 30 attempts. Staged file was preserved."
-                exit 3
-                """;
-
-        Files.writeString(script, ps, StandardCharsets.UTF_8);
-        Process helper = new ProcessBuilder("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
-                "-File", script.toString(),
-                "-WaitForProcessId", Long.toString(ProcessHandle.current().pid()),
-                "-Target", target.toString(),
-                "-Staged", staged.toString(),
-                "-LogFile", logFile.toString())
+        Process installer = new ProcessBuilder(java.toString(), "-cp", classes.toString(),
+                "xpizzax.updater.UpdateInstaller",
+                Long.toString(ProcessHandle.current().pid()),
+                target.toString(),
+                staged.toString(),
+                MOD_ID,
+                version,
+                logFile.toString())
                 .redirectInput(ProcessBuilder.Redirect.DISCARD)
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start();
-        log("Update installer helper started (PID " + helper.pid() + "). It will replace the JAR after Minecraft exits.");
+        log("Portable Java update installer started (PID " + installer.pid() + "). No launcher-specific API is used.");
     }
 
     private static String sha256(Path p) throws Exception {
