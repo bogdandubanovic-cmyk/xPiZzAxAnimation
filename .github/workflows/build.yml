@@ -2,7 +2,7 @@ name: Build xPiZzAxAnimation
 
 on:
   push:
-    branches: [main]
+    branches: [main, "v*"]
     tags: ["v*"]
   pull_request:
     branches: [main]
@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           chmod +x ./gradlew
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          if [[ "$GITHUB_REF_NAME" == v* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
             ./gradlew --no-daemon clean remapJar -Pmod_version="$VERSION"
           else
@@ -55,7 +55,7 @@ jobs:
           retention-days: 14
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref_name, 'v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
