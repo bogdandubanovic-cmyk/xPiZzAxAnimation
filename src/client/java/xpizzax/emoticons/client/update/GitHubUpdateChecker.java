@@ -132,7 +132,7 @@ public final class GitHubUpdateChecker {
         Path classFile = classes.resolve("xpizzax/updater/UpdateInstaller.class");
         Files.createDirectories(classFile.getParent());
 
-        try (var in = UpdateInstaller.class.getResourceAsStream("/xpizzax/emoticons/client/update/UpdateInstaller.class")) {
+        try (var in = UpdateInstaller.class.getResourceAsStream("/xpizzax/updater/UpdateInstaller.class")) {
             if (in == null) throw new IllegalStateException("Embedded Java updater class is missing");
             Files.copy(in, classFile, StandardCopyOption.REPLACE_EXISTING);
         }
