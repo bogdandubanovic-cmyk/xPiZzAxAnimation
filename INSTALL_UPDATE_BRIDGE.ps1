@@ -1,4 +1,4 @@
-param([string]$ModsDirectory = $PSScriptRoot)
+param([string]$ModsDirectory = $(if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }))
 $ErrorActionPreference = 'Stop'
 $repo = 'bogdandubanovic-cmyk/xPiZzAxAnimation'
 $api = "https://api.github.com/repos/$repo/releases/latest"
