@@ -2,6 +2,10 @@ package xpizzax.emoticons.client.update;
 
 import com.google.gson.*;
 import net.fabricmc.loader.api.FabricLoader;
+import xpizzax.updater.UpdateInstaller;
+
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.http.*;
@@ -12,137 +16,204 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.jar.JarFile;
-import xpizzax.updater.UpdateInstaller;
 
+/**
+ * Checks the public update manifest (GitHub Releases for now), downloads and
+ * verifies the new JAR during Minecraft's startup resource reload, then
+ * starts a standalone Java installer which replaces it after this JVM exits.
+ */
 public final class GitHubUpdateChecker {
     private static final String REPO = "bogdandubanovic-cmyk/xPiZzAxAnimation";
     private static final String MOD_ID = "xpizzaxanimation";
     private static final String ASSET = "xPiZzAxAnimation.jar";
-    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "xPiZzAxAnimation-Updater");
-        t.setDaemon(true);
-        return t;
+    private static final ExecutorService INSTALLER_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "xPiZzAxAnimation-Updater");
+        thread.setDaemon(true);
+        return thread;
     });
     private static final HttpClient HTTP = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .followRedirects(HttpClient.Redirect.NORMAL).build();
+            .connectTimeout(Duration.ofSeconds(12))
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build();
 
     private GitHubUpdateChecker() {}
 
-    public static void checkForUpdates() {
-        EXECUTOR.execute(() -> {
-            try {
-                var mod = FabricLoader.getInstance().getModContainer(MOD_ID);
-                if (mod.isEmpty()) return;
-                String installed = mod.get().getMetadata().getVersion().getFriendlyString();
+    /**
+     * @return true only when a verified update is ready and the external
+     * installer has successfully started.
+     */
+    public static boolean checkAndPrepareUpdate() {
+        try {
+            var mod = FabricLoader.getInstance().getModContainer(MOD_ID);
+            if (mod.isEmpty()) {
+                log("Installed mod container not found; startup continues.");
+                return false;
+            }
 
-                HttpRequest req = HttpRequest.newBuilder(URI.create(
-                        "https://api.github.com/repos/" + REPO + "/releases/latest"))
-                        .timeout(Duration.ofSeconds(15))
-                        .header("Accept", "application/vnd.github+json")
-                        .header("User-Agent", "xPiZzAxAnimation-Updater")
-                        .GET().build();
-                HttpResponse<String> response = HTTP.send(req,
-                        HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-                if (response.statusCode() != 200) {
-                    log("No release available or GitHub returned HTTP " + response.statusCode());
-                    return;
-                }
+            String installed = mod.get().getMetadata().getVersion().getFriendlyString();
+            XpaUpdateStatus.show("Проверка обновлений xPiZzAxAnimation...", 0.0f);
 
-                JsonObject release = JsonParser.parseString(response.body()).getAsJsonObject();
-                if (release.has("draft") && release.get("draft").getAsBoolean()) return;
-                if (release.has("prerelease") && release.get("prerelease").getAsBoolean()) return;
-                String tag = release.get("tag_name").getAsString();
-                String latest = stripV(tag);
-                if (compare(latest, installed) <= 0) {
-                    log("Already up to date: " + installed);
-                    return;
-                }
+            HttpRequest manifestRequest = HttpRequest.newBuilder(URI.create(
+                    "https://api.github.com/repos/" + REPO + "/releases/latest"))
+                    .timeout(Duration.ofSeconds(20))
+                    .header("Accept", "application/vnd.github+json")
+                    .header("User-Agent", "xPiZzAxAnimation-Updater")
+                    .GET().build();
 
-                JsonObject asset = null;
-                for (JsonElement e : release.getAsJsonArray("assets")) {
-                    JsonObject candidate = e.getAsJsonObject();
+            HttpResponse<String> manifestResponse = HTTP.send(
+                    manifestRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (manifestResponse.statusCode() != 200) {
+                log("Update manifest request returned HTTP " + manifestResponse.statusCode());
+                return false;
+            }
+
+            JsonObject release = JsonParser.parseString(manifestResponse.body()).getAsJsonObject();
+            if (release.has("draft") && release.get("draft").getAsBoolean()) return false;
+            if (release.has("prerelease") && release.get("prerelease").getAsBoolean()) return false;
+
+            String tag = release.get("tag_name").getAsString();
+            String latest = stripV(tag);
+            if (compareVersions(latest, installed) <= 0) {
+                log("Already up to date. Installed=" + installed + ", latest=" + latest);
+                return false;
+            }
+
+            JsonObject asset = null;
+            JsonArray assets = release.getAsJsonArray("assets");
+            if (assets != null) {
+                for (JsonElement element : assets) {
+                    JsonObject candidate = element.getAsJsonObject();
                     if (ASSET.equals(candidate.get("name").getAsString())) {
                         asset = candidate;
                         break;
                     }
                 }
-                if (asset == null) {
-                    log("Release " + tag + " has no " + ASSET);
-                    return;
-                }
-
-                Path current = Path.of(GitHubUpdateChecker.class.getProtectionDomain()
-                        .getCodeSource().getLocation().toURI()).toAbsolutePath().normalize();
-                if (!Files.isRegularFile(current) || !current.toString().toLowerCase(Locale.ROOT).endsWith(".jar")) {
-                    log("Cannot locate installed JAR (development environment?)");
-                    return;
-                }
-                Path updateDir = FabricLoader.getInstance().getConfigDir()
-                        .resolve("xpizzaxanimation").resolve("updates");
-                Files.createDirectories(updateDir);
-                Path staged = updateDir.resolve("xPiZzAxAnimation-" + latest + ".jar");
-                Files.deleteIfExists(staged);
-
-                HttpRequest download = HttpRequest.newBuilder(URI.create(
-                        asset.get("browser_download_url").getAsString()))
-                        .timeout(Duration.ofMinutes(3))
-                        .header("User-Agent", "xPiZzAxAnimation-Updater").GET().build();
-                HttpResponse<Path> file = HTTP.send(download, HttpResponse.BodyHandlers.ofFile(
-                        staged, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE));
-                if (file.statusCode() != 200) {
-                    Files.deleteIfExists(staged);
-                    log("Download failed: HTTP " + file.statusCode());
-                    return;
-                }
-
-                String digest = asset.has("digest") && !asset.get("digest").isJsonNull()
-                        ? asset.get("digest").getAsString() : "";
-                if (digest.startsWith("sha256:") &&
-                        !sha256(staged).equalsIgnoreCase(digest.substring(7))) {
-                    Files.deleteIfExists(staged);
-                    log("SHA-256 mismatch; keeping current version");
-                    return;
-                }
-
-                try (JarFile jar = new JarFile(staged.toFile())) {
-                    var entry = jar.getEntry("fabric.mod.json");
-                    if (entry == null) throw new IllegalStateException("No fabric.mod.json");
-                    JsonObject meta = JsonParser.parseReader(new InputStreamReader(
-                            jar.getInputStream(entry), StandardCharsets.UTF_8)).getAsJsonObject();
-                    if (!MOD_ID.equals(meta.get("id").getAsString()) ||
-                            compare(meta.get("version").getAsString(), latest) != 0)
-                        throw new IllegalStateException("Downloaded JAR identity/version mismatch");
-                } catch (Exception invalid) {
-                    Files.deleteIfExists(staged);
-                    log("Invalid update JAR: " + invalid.getMessage());
-                    return;
-                }
-
-                launchPortableInstaller(current, staged, latest);
-                log("Downloaded and verified " + tag + "; the Java installer will replace the mod after Minecraft closes.");
-            } catch (Exception e) {
-                log("Update check skipped safely: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             }
-        });
+            if (asset == null) {
+                log("Release " + tag + " does not contain " + ASSET);
+                return false;
+            }
+
+            Path target = Path.of(GitHubUpdateChecker.class.getProtectionDomain()
+                    .getCodeSource().getLocation().toURI()).toAbsolutePath().normalize();
+            if (!Files.isRegularFile(target) || !target.toString().toLowerCase(Locale.ROOT).endsWith(".jar")) {
+                log("Cannot resolve installed mod JAR path: " + target);
+                return false;
+            }
+
+            Path updates = FabricLoader.getInstance().getConfigDir()
+                    .resolve("xpizzaxanimation").resolve("updates");
+            Files.createDirectories(updates);
+            Path staged = updates.resolve("xPiZzAxAnimation-" + latest + ".jar");
+            Files.deleteIfExists(staged);
+
+            XpaUpdateStatus.show("Загрузка xPiZzAxAnimation " + latest + "...", 0.0f);
+            downloadAndReport(asset.get("browser_download_url").getAsString(),
+                    asset.has("size") ? asset.get("size").getAsLong() : -1L, staged);
+
+            String expectedDigest = asset.has("digest") && !asset.get("digest").isJsonNull()
+                    ? asset.get("digest").getAsString() : "";
+            if (expectedDigest.startsWith("sha256:")) {
+                String actual = sha256(staged);
+                if (!actual.equalsIgnoreCase(expectedDigest.substring("sha256:".length()))) {
+                    Files.deleteIfExists(staged);
+                    throw new IllegalStateException("SHA-256 mismatch; current mod was not touched");
+                }
+            }
+
+            String downloadedVersion = readAndValidateMod(staged);
+            if (compareVersions(downloadedVersion, latest) != 0) {
+                Files.deleteIfExists(staged);
+                throw new IllegalStateException("Downloaded mod version " + downloadedVersion
+                        + " does not match release " + latest);
+            }
+
+            launchPortableInstaller(target, staged, latest);
+            XpaUpdateStatus.show("Обновление " + latest + " загружено. Подготовка установки...", 1.0f);
+            log("Verified update " + latest + "; external installer started. Current=" + installed);
+            return true;
+        } catch (Exception error) {
+            log("Update check failed safely: " + error.getClass().getSimpleName() + ": " + error.getMessage());
+            return false;
+        }
+    }
+
+    private static void downloadAndReport(String url, long total, Path destination) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                .timeout(Duration.ofMinutes(4))
+                .header("User-Agent", "xPiZzAxAnimation-Updater")
+                .GET().build();
+
+        HttpResponse<InputStream> response = HTTP.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        if (response.statusCode() != 200) {
+            try (InputStream ignored = response.body()) {}
+            throw new IllegalStateException("JAR download returned HTTP " + response.statusCode());
+        }
+
+        long copied = 0L;
+        try (InputStream input = response.body();
+             OutputStream output = Files.newOutputStream(destination,
+                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            byte[] buffer = new byte[32 * 1024];
+            int read;
+            long lastReport = 0L;
+            while ((read = input.read(buffer)) != -1) {
+                output.write(buffer, 0, read);
+                copied += read;
+                if (copied - lastReport >= 128 * 1024 || (total > 0 && copied >= total)) {
+                    float progress = total > 0 ? Math.min(1.0f, (float) copied / (float) total) : -1.0f;
+                    String suffix = total > 0 ? " " + Math.round(progress * 100) + "%" : "";
+                    XpaUpdateStatus.show("Загрузка обновления..." + suffix, progress);
+                    lastReport = copied;
+                }
+            }
+        } catch (Exception error) {
+            Files.deleteIfExists(destination);
+            throw error;
+        }
+
+        if (total > 0 && copied != total) {
+            Files.deleteIfExists(destination);
+            throw new IllegalStateException("Incomplete download: " + copied + "/" + total + " bytes");
+        }
+        if (copied < 32 * 1024) {
+            Files.deleteIfExists(destination);
+            throw new IllegalStateException("Downloaded JAR is unexpectedly small");
+        }
+    }
+
+    private static String readAndValidateMod(Path jarPath) throws Exception {
+        try (JarFile jar = new JarFile(jarPath.toFile())) {
+            var entry = jar.getJarEntry("fabric.mod.json");
+            if (entry == null) throw new IllegalStateException("Downloaded JAR has no fabric.mod.json");
+            JsonObject metadata;
+            try (InputStreamReader reader = new InputStreamReader(
+                    jar.getInputStream(entry), StandardCharsets.UTF_8)) {
+                metadata = JsonParser.parseReader(reader).getAsJsonObject();
+            }
+            if (!MOD_ID.equals(metadata.get("id").getAsString())) {
+                throw new IllegalStateException("Downloaded JAR has wrong mod id");
+            }
+            return metadata.get("version").getAsString();
+        }
     }
 
     private static void launchPortableInstaller(Path target, Path staged, String version) throws Exception {
         Path config = FabricLoader.getInstance().getConfigDir().resolve("xpizzaxanimation");
-        Path classes = config.resolve("updater-runtime");
-        Path classFile = classes.resolve("xpizzax/updater/UpdateInstaller.class");
+        Path runtime = config.resolve("updater-runtime");
+        Path classFile = runtime.resolve("xpizzax/updater/UpdateInstaller.class");
         Files.createDirectories(classFile.getParent());
 
-        try (var in = UpdateInstaller.class.getResourceAsStream("/xpizzax/updater/UpdateInstaller.class")) {
-            if (in == null) throw new IllegalStateException("Embedded Java updater class is missing");
-            Files.copy(in, classFile, StandardCopyOption.REPLACE_EXISTING);
+        try (InputStream input = UpdateInstaller.class.getResourceAsStream("/xpizzax/updater/UpdateInstaller.class")) {
+            if (input == null) throw new IllegalStateException("Embedded Java installer class is missing");
+            Files.copy(input, classFile, StandardCopyOption.REPLACE_EXISTING);
         }
 
-        Path logFile = config.resolve("update-installer.log");
         boolean windows = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
-        Path java = Path.of(System.getProperty("java.home"), "bin", windows ? "java.exe" : "java");
+        Path javaExecutable = Path.of(System.getProperty("java.home"), "bin", windows ? "java.exe" : "java");
+        Path logFile = config.resolve("update-installer.log");
 
-        Process installer = new ProcessBuilder(java.toString(), "-cp", classes.toString(),
+        Process installer = new ProcessBuilder(javaExecutable.toString(), "-cp", runtime.toString(),
                 "xpizzax.updater.UpdateInstaller",
                 Long.toString(ProcessHandle.current().pid()),
                 target.toString(),
@@ -154,30 +225,45 @@ public final class GitHubUpdateChecker {
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start();
-        log("Portable Java update installer started (PID " + installer.pid() + "). No launcher-specific API is used.");
+
+        log("Standalone installer started; PID=" + installer.pid());
     }
 
-    private static String sha256(Path p) throws Exception {
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        try (var in = Files.newInputStream(p)) {
-            byte[] b = new byte[16384]; int n;
-            while ((n = in.read(b)) > 0) md.update(b, 0, n);
+    private static String sha256(Path file) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (InputStream input = Files.newInputStream(file)) {
+            byte[] buffer = new byte[16 * 1024];
+            int read;
+            while ((read = input.read(buffer)) > 0) digest.update(buffer, 0, read);
         }
-        return HexFormat.of().formatHex(md.digest());
+        return HexFormat.of().formatHex(digest.digest());
     }
-    private static String stripV(String s) { return s.startsWith("v") ? s.substring(1) : s; }
-    private static int compare(String a, String b) {
-        String[] x = stripV(a).split("[-+]", 2)[0].split("\\.");
-        String[] y = stripV(b).split("[-+]", 2)[0].split("\\.");
-        for (int i=0;i<Math.max(x.length,y.length);i++) {
-            int xi=i<x.length?parse(x[i]):0, yi=i<y.length?parse(y[i]):0;
-            if(xi!=yi)return Integer.compare(xi,yi);
+
+    private static int compareVersions(String first, String second) {
+        String[] a = stripV(first).split("[-+]", 2)[0].split("\\.");
+        String[] b = stripV(second).split("[-+]", 2)[0].split("\\.");
+        for (int i = 0; i < Math.max(a.length, b.length); i++) {
+            int av = i < a.length ? numericPart(a[i]) : 0;
+            int bv = i < b.length ? numericPart(b[i]) : 0;
+            if (av != bv) return Integer.compare(av, bv);
         }
         return 0;
     }
-    private static int parse(String s) {
-        String d=s.replaceAll("[^0-9].*$","");
-        try{return d.isEmpty()?0:Integer.parseInt(d);}catch(Exception e){return 0;}
+
+    private static int numericPart(String value) {
+        String digits = value.replaceAll("[^0-9].*$", "");
+        try {
+            return digits.isEmpty() ? 0 : Integer.parseInt(digits);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
     }
-    private static void log(String s) { System.out.println("[xPiZzAxAnimation Updater] "+s); }
+
+    private static String stripV(String value) {
+        return value.startsWith("v") ? value.substring(1) : value;
+    }
+
+    private static void log(String message) {
+        System.out.println("[xPiZzAxAnimation Updater] " + message);
+    }
 }
