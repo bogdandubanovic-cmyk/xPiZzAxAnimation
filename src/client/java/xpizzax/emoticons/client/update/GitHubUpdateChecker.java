@@ -2,7 +2,6 @@ package xpizzax.emoticons.client.update;
 
 import com.google.gson.*;
 import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.ModContainer;
 import xpizzax.updater.UpdateInstaller;
 
 import java.io.InputStream;
@@ -89,10 +88,15 @@ public final class GitHubUpdateChecker {
                 return false;
             }
 
-            // Use the exact origin reported by Fabric Loader. CodeSource may point to
-            // a transformed runtime copy rather than the JAR inside the mods folder.
-            Path target = resolveInstalledJar(mod.get(), installed);
-            log("Resolved installed mod JAR: " + target);
+            // Stage downloads in config, but always install the active mod into this
+            // Minecraft instance's actual mods directory.
+            Path modsDirectory = FabricLoader.getInstance().getGameDir()
+                    .toAbsolutePath().normalize().resolve("mods");
+            Files.createDirectories(modsDirectory);
+            if (!Files.isDirectory(modsDirectory) || !Files.isWritable(modsDirectory)) {
+                throw new IllegalStateException("Minecraft mods folder is not writable: " + modsDirectory);
+            }
+            log("Install destination (mods folder): " + modsDirectory);
 
             Path updates = FabricLoader.getInstance().getConfigDir()
                     .resolve("xpizzaxanimation").resolve("updates");
@@ -122,7 +126,7 @@ public final class GitHubUpdateChecker {
                         + " does not match release " + latest);
             }
 
-            launchPortableInstaller(target, staged, latest);
+            launchPortableInstaller(modsDirectory, staged, latest);
             XpaUpdateStatus.show("Обновление " + latest + " загружено. Подготовка установки...", 1.0f);
             log("Verified update " + latest + "; external installer started. Current=" + installed);
             return true;
@@ -130,39 +134,6 @@ public final class GitHubUpdateChecker {
             log("Update check failed safely: " + error.getClass().getSimpleName() + ": " + error.getMessage());
             return false;
         }
-    }
-
-    /**
-     * Resolves the original installed JAR from Fabric Loader's mod origin.
-     * Only a real JAR containing this mod ID and the currently loaded version
-     * can be selected as the replacement target.
-     */
-    private static Path resolveInstalledJar(ModContainer mod, String installedVersion) throws Exception {
-        List<Path> originPaths;
-        try {
-            originPaths = mod.getOrigin().getPaths();
-        } catch (UnsupportedOperationException error) {
-            throw new IllegalStateException("xPiZzAxAnimation is not loaded from a replaceable standalone JAR", error);
-        }
-
-        for (Path originPath : originPaths) {
-            Path candidate = originPath.toAbsolutePath().normalize();
-            if (!Files.isRegularFile(candidate)
-                    || !candidate.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar")) {
-                continue;
-            }
-            try {
-                String candidateVersion = readAndValidateMod(candidate);
-                if (compareVersions(candidateVersion, installedVersion) == 0) {
-                    return candidate;
-                }
-            } catch (Exception ignored) {
-                // Ignore unrelated origins; never overwrite a different mod.
-            }
-        }
-
-        throw new IllegalStateException("Fabric Loader did not report the installed xPiZzAxAnimation JAR. "
-                + "Origin paths: " + originPaths);
     }
 
     /**
@@ -240,7 +211,7 @@ public final class GitHubUpdateChecker {
         }
     }
 
-    private static void launchPortableInstaller(Path target, Path staged, String version) throws Exception {
+    private static void launchPortableInstaller(Path modsDirectory, Path staged, String version) throws Exception {
         Path config = FabricLoader.getInstance().getConfigDir().resolve("xpizzaxanimation");
         Path runtime = config.resolve("updater-runtime");
         Path classFile = runtime.resolve("xpizzax/updater/UpdateInstaller.class");
@@ -258,7 +229,7 @@ public final class GitHubUpdateChecker {
         Process installer = new ProcessBuilder(javaExecutable.toString(), "-cp", runtime.toString(),
                 "xpizzax.updater.UpdateInstaller",
                 Long.toString(ProcessHandle.current().pid()),
-                target.toString(),
+                modsDirectory.toString(),
                 staged.toString(),
                 MOD_ID,
                 version,
@@ -268,7 +239,8 @@ public final class GitHubUpdateChecker {
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start();
 
-        log("Standalone installer started; PID=" + installer.pid());
+        log("Standalone installer started; PID=" + installer.pid()
+                + "; mods directory=" + modsDirectory);
     }
 
     private static String sha256(Path file) throws Exception {
