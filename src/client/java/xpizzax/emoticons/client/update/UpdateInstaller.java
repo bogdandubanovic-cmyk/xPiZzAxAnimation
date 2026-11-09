@@ -32,7 +32,15 @@ public final class UpdateInstaller {
                 Thread.sleep(500);
             }
             writeLog(log, "Minecraft closed; installing " + version);
+            writeLog(log, "Install target: " + target);
+            writeLog(log, "Staged update: " + staged);
 
+            if (target.equals(staged)) {
+                throw new IOException("Install target and staged update are the same file");
+            }
+            if (!isValidModJar(target, modId)) {
+                throw new IOException("Resolved target is not the currently installed " + modId + " JAR: " + target);
+            }
             if (!isValidJar(staged, modId, version)) {
                 throw new IOException("Staged JAR failed identity/version validation");
             }
@@ -79,6 +87,25 @@ public final class UpdateInstaller {
             Files.move(from, to, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (AtomicMoveNotSupportedException e) {
             Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private static boolean isValidModJar(Path file, String modId) {
+        if (!Files.isRegularFile(file)
+                || !file.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".jar")) {
+            return false;
+        }
+        try (JarFile jar = new JarFile(file.toFile())) {
+            var entry = jar.getEntry("fabric.mod.json");
+            if (entry == null) return false;
+            String json;
+            try (var in = jar.getInputStream(entry)) {
+                json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            String idPattern = "\\\"id\\\"\\s*:\\s*\\\"" + Pattern.quote(modId) + "\\\"";
+            return Pattern.compile(idPattern).matcher(json).find();
+        } catch (Exception e) {
+            return false;
         }
     }
 
