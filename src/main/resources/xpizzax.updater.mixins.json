@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "xpizzax.emoticons.mixin.client",
+  "compatibilityLevel": "JAVA_17",
+  "client": [
+    "XpaSplashOverlayMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "refmap": "xpizzax.refmap.json"
+}
