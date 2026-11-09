@@ -13,9 +13,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Runs the updater as part of Minecraft's real client resource-reload pipeline.
- * The reload future keeps the vanilla loading overlay visible while the update
- * is checked, downloaded and verified.
+ * Runs the updater inside Minecraft's first client resource-reload phase.
+ * The reload future intentionally stays pending while the update is prepared,
+ * so the vanilla startup/loading screen remains visible.
  */
 public final class StartupUpdateReloadListener implements IdentifiableResourceReloadListener {
     private static final AtomicBoolean CHECKED = new AtomicBoolean(false);
@@ -39,35 +39,38 @@ public final class StartupUpdateReloadListener implements IdentifiableResourceRe
             return synchronizer.whenPrepared(null);
         }
 
+        XpaUpdateStatus.show("Проверка обновлений xPiZzAxAnimation...", 0.0f);
+
         return CompletableFuture
                 .supplyAsync(GitHubUpdateChecker::checkAndPrepareUpdate, prepareExecutor)
-                .thenCompose(synchronizer::whenPrepared)
-                .thenCompose(updateReady -> {
+                .thenCompose(updateReady -> synchronizer.whenPrepared(updateReady).thenCompose(ignored -> {
                     if (!Boolean.TRUE.equals(updateReady)) {
+                        XpaUpdateStatus.hide();
                         return CompletableFuture.completedFuture(null);
                     }
-                    return waitThenStopMinecraft();
-                });
+                    return showRestartAndStopClient();
+                }));
     }
 
-    private CompletableFuture<Void> waitThenStopMinecraft() {
-        CompletableFuture<Void> stopSignal = new CompletableFuture<>();
+    private CompletableFuture<Void> showRestartAndStopClient() {
+        XpaUpdateStatus.show("Обновление установлено. Требуется перезапуск лаунчера.", 1.0f);
+        CompletableFuture<Void> stopped = new CompletableFuture<>();
 
-        // Keep the resource-loading screen visible long enough for the user to
-        // read the message. The standalone installer is already waiting for
-        // this Minecraft process to exit.
         CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS).execute(() -> {
             MinecraftClient client = MinecraftClient.getInstance();
             client.execute(() -> {
-                XpaUpdateStatus.show("Обновление подготовлено. Закрываем Minecraft для установки...");
                 try {
+                    // This closes the Minecraft process. The standalone Java
+                    // installer waits for this PID and replaces the JAR after
+                    // Windows releases the file handle.
                     client.stop();
-                } finally {
-                    stopSignal.complete(null);
+                    stopped.complete(null);
+                } catch (Throwable error) {
+                    stopped.completeExceptionally(error);
                 }
             });
         });
 
-        return stopSignal;
+        return stopped;
     }
 }
