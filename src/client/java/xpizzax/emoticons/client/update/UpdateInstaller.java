@@ -17,7 +17,7 @@ public final class UpdateInstaller {
     private UpdateInstaller() {}
 
     public static void main(String[] args) {
-        if (args.length != 6) System.exit(2);
+        if (args.length != 7) System.exit(2);
 
         long pid = Long.parseLong(args[0]);
         Path modsDirectory = Path.of(args[1]).toAbsolutePath().normalize();
@@ -25,6 +25,7 @@ public final class UpdateInstaller {
         String modId = args[3];
         String version = args[4];
         Path log = Path.of(args[5]).toAbsolutePath().normalize();
+        Path legacyUpdatesDirectory = Path.of(args[6]).toAbsolutePath().normalize();
 
         try {
             Files.createDirectories(log.getParent());
@@ -37,7 +38,7 @@ public final class UpdateInstaller {
             }
 
             writeLog(log, "Minecraft closed; installing " + version);
-            installIntoMods(modsDirectory, staged, modId, version, log);
+            installIntoMods(modsDirectory, staged, modId, version, log, legacyUpdatesDirectory);
         } catch (Exception error) {
             writeLog(log, "FAILED: " + error);
             System.exit(3);
@@ -45,7 +46,8 @@ public final class UpdateInstaller {
     }
 
     private static void installIntoMods(
-            Path modsDirectory, Path staged, String modId, String version, Path log
+            Path modsDirectory, Path staged, String modId, String version, Path log,
+            Path legacyUpdatesDirectory
     ) throws Exception {
         Files.createDirectories(modsDirectory);
         if (!Files.isDirectory(modsDirectory) || !Files.isWritable(modsDirectory)) {
@@ -90,8 +92,8 @@ public final class UpdateInstaller {
                 writeLog(log, "WARNING: could not remove temporary backup folder: " + cleanupError);
             }
 
-            // Remove only stale staged copies of this mod from config/.../updates.
-            cleanupStagedCopies(staged.getParent(), modId, log);
+            // Remove only legacy updater JARs left by previous versions in config.
+            cleanupStagedCopies(legacyUpdatesDirectory, modId, log);
         } catch (Exception installError) {
             writeLog(log, "Install failed; restoring previous mod JARs: " + installError);
             try {
