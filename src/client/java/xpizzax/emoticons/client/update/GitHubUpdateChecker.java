@@ -2,6 +2,7 @@ package xpizzax.emoticons.client.update;
 
 import com.google.gson.*;
 import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
 import xpizzax.updater.UpdateInstaller;
 
 import java.io.InputStream;
@@ -14,7 +15,6 @@ import java.nio.file.*;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.*;
 import java.util.jar.JarFile;
 
 /**
@@ -26,11 +26,6 @@ public final class GitHubUpdateChecker {
     private static final String REPO = "bogdandubanovic-cmyk/xPiZzAxAnimation";
     private static final String MOD_ID = "xpizzaxanimation";
     private static final String ASSET = "xPiZzAxAnimation.jar";
-    private static final ExecutorService INSTALLER_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
-        Thread thread = new Thread(r, "xPiZzAxAnimation-Updater");
-        thread.setDaemon(true);
-        return thread;
-    });
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(12))
             .followRedirects(HttpClient.Redirect.NORMAL)
@@ -94,17 +89,16 @@ public final class GitHubUpdateChecker {
                 return false;
             }
 
-            Path target = Path.of(GitHubUpdateChecker.class.getProtectionDomain()
-                    .getCodeSource().getLocation().toURI()).toAbsolutePath().normalize();
-            if (!Files.isRegularFile(target) || !target.toString().toLowerCase(Locale.ROOT).endsWith(".jar")) {
-                log("Cannot resolve installed mod JAR path: " + target);
-                return false;
-            }
+            // Use the exact origin reported by Fabric Loader. CodeSource may point to
+            // a transformed runtime copy rather than the JAR inside the mods folder.
+            Path target = resolveInstalledJar(mod.get(), installed);
+            log("Resolved installed mod JAR: " + target);
 
             Path updates = FabricLoader.getInstance().getConfigDir()
                     .resolve("xpizzaxanimation").resolve("updates");
             Files.createDirectories(updates);
             Path staged = updates.resolve("xPiZzAxAnimation-" + latest + ".jar");
+            removeStaleStagedUpdates(updates, staged);
             Files.deleteIfExists(staged);
 
             XpaUpdateStatus.show("Загрузка xPiZzAxAnimation " + latest + "...", 0.0f);
@@ -135,6 +129,54 @@ public final class GitHubUpdateChecker {
         } catch (Exception error) {
             log("Update check failed safely: " + error.getClass().getSimpleName() + ": " + error.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Resolves the original installed JAR from Fabric Loader's mod origin.
+     * Only a real JAR containing this mod ID and the currently loaded version
+     * can be selected as the replacement target.
+     */
+    private static Path resolveInstalledJar(ModContainer mod, String installedVersion) throws Exception {
+        List<Path> originPaths;
+        try {
+            originPaths = mod.getOrigin().getPaths();
+        } catch (UnsupportedOperationException error) {
+            throw new IllegalStateException("xPiZzAxAnimation is not loaded from a replaceable standalone JAR", error);
+        }
+
+        for (Path originPath : originPaths) {
+            Path candidate = originPath.toAbsolutePath().normalize();
+            if (!Files.isRegularFile(candidate)
+                    || !candidate.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar")) {
+                continue;
+            }
+            try {
+                String candidateVersion = readAndValidateMod(candidate);
+                if (compareVersions(candidateVersion, installedVersion) == 0) {
+                    return candidate;
+                }
+            } catch (Exception ignored) {
+                // Ignore unrelated origins; never overwrite a different mod.
+            }
+        }
+
+        throw new IllegalStateException("Fabric Loader did not report the installed xPiZzAxAnimation JAR. "
+                + "Origin paths: " + originPaths);
+    }
+
+    /**
+     * Removes only obsolete staged copies created by this updater. Other files
+     * and all other mods in the config directory are left untouched.
+     */
+    private static void removeStaleStagedUpdates(Path updates, Path keep) throws Exception {
+        try (DirectoryStream<Path> files = Files.newDirectoryStream(updates, "xPiZzAxAnimation-*.jar")) {
+            for (Path file : files) {
+                if (!file.toAbsolutePath().normalize().equals(keep.toAbsolutePath().normalize())) {
+                    Files.deleteIfExists(file);
+                    log("Removed stale staged update: " + file.getFileName());
+                }
+            }
         }
     }
 
