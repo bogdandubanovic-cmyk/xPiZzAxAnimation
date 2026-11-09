@@ -99,11 +99,10 @@ public final class GitHubUpdateChecker {
             }
             log("Install destination (mods folder): " + modsDirectory);
 
-            Path updates = FabricLoader.getInstance().getConfigDir()
-                    .resolve("xpizzaxanimation").resolve("updates");
-            Files.createDirectories(updates);
-            Path staged = updates.resolve("xPiZzAxAnimation-" + latest + ".jar");
-            removeStaleStagedUpdates(updates, staged);
+            // Download the temporary payload directly inside /mods. It is NOT
+            // a .jar yet, so Fabric cannot load it as a second mod.
+            Path staged = modsDirectory.resolve(".xpa-update-" + latest + ".part");
+            removeStaleStagedUpdates(modsDirectory, staged);
             Files.deleteIfExists(staged);
 
             XpaUpdateStatus.show("Загрузка xPiZzAxAnimation " + latest + "...", 0.0f);
@@ -180,11 +179,8 @@ public final class GitHubUpdateChecker {
             return false;
         }
 
-        Path updates = FabricLoader.getInstance().getConfigDir()
-                .resolve("xpizzaxanimation").resolve("updates");
-        Files.createDirectories(updates);
-        Path staged = updates.resolve("xPiZzAxAnimation-normalize-" + installedVersion + ".jar");
-        removeStaleStagedUpdates(updates, staged);
+        Path staged = modsDirectory.resolve(".xpa-update-normalize-" + installedVersion + ".part");
+        removeStaleStagedUpdates(modsDirectory, staged);
         Files.copy(currentVersionJar, staged, StandardCopyOption.REPLACE_EXISTING);
 
         String copiedVersion = readAndValidateMod(staged);
@@ -224,11 +220,10 @@ public final class GitHubUpdateChecker {
     }
 
     /**
-     * Removes only obsolete staged copies created by this updater. Other files
-     * and all other mods in the config directory are left untouched.
+     * Removes only obsolete temporary downloads created by this updater in /mods.
      */
     private static void removeStaleStagedUpdates(Path updates, Path keep) throws Exception {
-        try (DirectoryStream<Path> files = Files.newDirectoryStream(updates, "xPiZzAxAnimation-*.jar")) {
+        try (DirectoryStream<Path> files = Files.newDirectoryStream(updates, ".xpa-update-*.part")) {
             for (Path file : files) {
                 if (!file.toAbsolutePath().normalize().equals(keep.toAbsolutePath().normalize())) {
                     Files.deleteIfExists(file);
@@ -320,7 +315,8 @@ public final class GitHubUpdateChecker {
                 staged.toString(),
                 MOD_ID,
                 version,
-                logFile.toString())
+                logFile.toString(),
+                FabricLoader.getInstance().getConfigDir().resolve("xpizzaxanimation").resolve("updates").toString())
                 .redirectInput(ProcessBuilder.Redirect.DISCARD)
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
