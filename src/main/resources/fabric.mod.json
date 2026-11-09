@@ -19,7 +19,8 @@
   "mixins": [
     "xpizzax.client.mixins.json",
     "xpizzaxreplay-nv.mixins.json",
-    "replaycarsbridge.mixins.json"
+    "replaycarsbridge.mixins.json",
+    "xpizzax.updater.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.15.0",
