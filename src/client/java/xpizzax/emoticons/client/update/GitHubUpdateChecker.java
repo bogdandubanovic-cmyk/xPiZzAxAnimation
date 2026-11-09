@@ -69,7 +69,7 @@ public final class GitHubUpdateChecker {
             String latest = stripV(tag);
             if (compareVersions(latest, installed) <= 0) {
                 log("Already up to date. Installed=" + installed + ", latest=" + latest);
-                return false;
+                return normalizeInstalledModIfNeeded(installed);
             }
 
             JsonObject asset = null;
@@ -134,6 +134,64 @@ public final class GitHubUpdateChecker {
             log("Update check failed safely: " + error.getClass().getSimpleName() + ": " + error.getMessage());
             return false;
         }
+    }
+
+    /**
+     * On the first start after a legacy update, normalize the mod in /mods:
+     * keep exactly one canonical xPiZzAxAnimation.jar and remove old duplicates.
+     */
+    private static boolean normalizeInstalledModIfNeeded(String installedVersion) throws Exception {
+        Path modsDirectory = FabricLoader.getInstance().getGameDir()
+                .toAbsolutePath().normalize().resolve("mods");
+        if (!Files.isDirectory(modsDirectory)) return false;
+
+        List<Path> modJars = new ArrayList<>();
+        Path currentVersionJar = null;
+        try (DirectoryStream<Path> files = Files.newDirectoryStream(modsDirectory)) {
+            for (Path file : files) {
+                String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
+                if (!Files.isRegularFile(file) || !name.endsWith(".jar")) continue;
+                try {
+                    String fileVersion = readAndValidateMod(file);
+                    modJars.add(file);
+                    if (currentVersionJar == null
+                            && compareVersions(fileVersion, installedVersion) == 0) {
+                        currentVersionJar = file;
+                    }
+                } catch (Exception ignored) {
+                    // Leave unrelated or malformed JARs alone.
+                }
+            }
+        }
+
+        Path canonical = modsDirectory.resolve(ASSET);
+        if (modJars.size() == 1 && modJars.get(0).toAbsolutePath().normalize().equals(
+                canonical.toAbsolutePath().normalize())) {
+            return false;
+        }
+        if (currentVersionJar == null) {
+            log("No matching current-version JAR found in mods; skip normalization.");
+            return false;
+        }
+
+        Path updates = FabricLoader.getInstance().getConfigDir()
+                .resolve("xpizzaxanimation").resolve("updates");
+        Files.createDirectories(updates);
+        Path staged = updates.resolve("xPiZzAxAnimation-normalize-" + installedVersion + ".jar");
+        removeStaleStagedUpdates(updates, staged);
+        Files.copy(currentVersionJar, staged, StandardCopyOption.REPLACE_EXISTING);
+
+        String copiedVersion = readAndValidateMod(staged);
+        if (compareVersions(copiedVersion, installedVersion) != 0) {
+            Files.deleteIfExists(staged);
+            throw new IllegalStateException("Could not stage the currently installed mod for normalization");
+        }
+
+        launchPortableInstaller(modsDirectory, staged, installedVersion);
+        XpaUpdateStatus.show("Исправление расположения xPiZzAxAnimation...", 1.0f);
+        log("Prepared mods-folder normalization: " + modJars.size()
+                + " matching JAR(s); canonical destination=" + canonical);
+        return true;
     }
 
     /**
