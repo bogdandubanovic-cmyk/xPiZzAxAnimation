@@ -53,7 +53,7 @@ public final class StartupUpdateReloadListener implements IdentifiableResourceRe
     }
 
     private CompletableFuture<Void> showRestartAndStopClient() {
-        XpaUpdateStatus.show("Обновление установлено. Требуется перезапуск лаунчера.", 1.0f);
+        XpaUpdateStatus.show("Обновление скачано и проверено. Minecraft закроется для установки.", 1.0f);
         CompletableFuture<Void> stopped = new CompletableFuture<>();
 
         CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS).execute(() -> {
