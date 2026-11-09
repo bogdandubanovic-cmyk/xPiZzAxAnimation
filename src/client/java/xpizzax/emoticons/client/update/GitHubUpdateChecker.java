@@ -2,6 +2,7 @@ package xpizzax.emoticons.client.update;
 
 import com.google.gson.*;
 import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
 import xpizzax.updater.UpdateInstaller;
 
 import java.io.InputStream;
@@ -69,7 +70,7 @@ public final class GitHubUpdateChecker {
             String latest = stripV(tag);
             if (compareVersions(latest, installed) <= 0) {
                 log("Already up to date. Installed=" + installed + ", latest=" + latest);
-                return normalizeInstalledModIfNeeded(installed);
+                return normalizeInstalledModIfNeeded(installed, mod.get());
             }
 
             JsonObject asset = null;
@@ -140,7 +141,7 @@ public final class GitHubUpdateChecker {
      * On the first start after a legacy update, normalize the mod in /mods:
      * keep exactly one canonical xPiZzAxAnimation.jar and remove old duplicates.
      */
-    private static boolean normalizeInstalledModIfNeeded(String installedVersion) throws Exception {
+    private static boolean normalizeInstalledModIfNeeded(String installedVersion, ModContainer mod) throws Exception {
         Path modsDirectory = FabricLoader.getInstance().getGameDir()
                 .toAbsolutePath().normalize().resolve("mods");
         if (!Files.isDirectory(modsDirectory)) return false;
@@ -169,8 +170,13 @@ public final class GitHubUpdateChecker {
                 canonical.toAbsolutePath().normalize())) {
             return false;
         }
+        // The currently loaded copy may itself have been launched from the old
+        // config/updates location. Use Fabric's reported origin as a safe fallback.
         if (currentVersionJar == null) {
-            log("No matching current-version JAR found in mods; skip normalization.");
+            currentVersionJar = resolveCurrentModJar(mod, installedVersion);
+        }
+        if (currentVersionJar == null) {
+            log("No current-version xPiZzAxAnimation JAR could be resolved; skip normalization.");
             return false;
         }
 
@@ -192,6 +198,29 @@ public final class GitHubUpdateChecker {
         log("Prepared mods-folder normalization: " + modJars.size()
                 + " matching JAR(s); canonical destination=" + canonical);
         return true;
+    }
+
+    private static Path resolveCurrentModJar(ModContainer mod, String installedVersion) {
+        try {
+            for (Path origin : mod.getOrigin().getPaths()) {
+                Path candidate = origin.toAbsolutePath().normalize();
+                if (!Files.isRegularFile(candidate)
+                        || !candidate.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar")) {
+                    continue;
+                }
+                try {
+                    if (compareVersions(readAndValidateMod(candidate), installedVersion) == 0) {
+                        log("Resolved active mod from Fabric origin: " + candidate);
+                        return candidate;
+                    }
+                } catch (Exception ignored) {
+                    // Ignore origins that are not the active mod JAR.
+                }
+            }
+        } catch (Exception error) {
+            log("Could not resolve Fabric mod origin for normalization: " + error);
+        }
+        return null;
     }
 
     /**
