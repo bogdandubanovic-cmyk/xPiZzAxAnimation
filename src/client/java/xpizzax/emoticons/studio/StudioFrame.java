@@ -3,9 +3,10 @@ package xpizzax.emoticons.studio;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** A single sampled moment in a cinematic project. Angles are stored in degrees. */
+/** A sampled moment or editable keyframe in a cinematic project. Angles are degrees. */
 public final class StudioFrame {
     public int tick;
+    public boolean keyframe;
     public double x, y, z;
     public float bodyYaw, headYaw, headPitch;
     public double cameraX, cameraY, cameraZ;
