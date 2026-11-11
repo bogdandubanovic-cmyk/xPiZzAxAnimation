@@ -194,6 +194,23 @@ public final class PoseRenderer {
         for(String name:BONES){Rig.Bone bone=rig.bones.get(name);if(bone!=null)deltas.get(name).identity().rotateY((float)Math.PI).mul(bone.mat).mul(inverseBinds.get(name));}
         return true;
     }
+
+    /** Copies the currently evaluated BOBJ rig pose into a take sample. */
+    public void captureStudioPose(LivingEntity entity, xpizzax.emoticons.studio.StudioFrame frame) {
+        rig.resetPose();
+        animator.applyActions(entity, rig, 1F);
+        for (Rig.Bone bone : rig.orderedBones) {
+            Rig.Transform transform = bone.transform;
+            xpizzax.emoticons.studio.StudioFrame.BonePose pose =
+                    new xpizzax.emoticons.studio.StudioFrame.BonePose();
+            pose.x = transform.translate.x; pose.y = transform.translate.y; pose.z = transform.translate.z;
+            pose.pitch = (float)Math.toDegrees(transform.rotate.x);
+            pose.yaw = (float)Math.toDegrees(transform.rotate.y);
+            pose.roll = (float)Math.toDegrees(transform.rotate.z);
+            pose.scaleX = transform.scale.x; pose.scaleY = transform.scale.y; pose.scaleZ = transform.scale.z;
+            frame.bones.put(bone.name, pose);
+        }
+    }
     private Matrix4f xpizzaxVanillaSkinDelta(String name){return deltas.get(name);}
     private Matrix4f xpizzaxBobjSkinDelta(String name){return deltas.get(name);}
     private Vec3f computeBobjBend(String child,String parent) {
