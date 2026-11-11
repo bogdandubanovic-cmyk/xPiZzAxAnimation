@@ -126,6 +126,7 @@ public final class CinematicStudio {
             if (previewTick >= project.durationTicks) {
                 previewTick = project.durationTicks;
                 previewPlaying = false;
+                selectedFrame = project.frames.size() - 1;
             }
         }
         if (!recording || now == lastSampleTick) return;
