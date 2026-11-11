@@ -134,7 +134,7 @@ public final class CinematicStudio {
     public static void rotateFreeCamera(double dx, double dy) {
         if (!studioOpen || !freeCamera) return;
         freeYaw = wrapDegrees(freeYaw - (float)dx * 0.22F);
-        freePitch = Math.max(-89F, Math.min(89F, freePitch + (float)dy * 0.22F));
+        freePitch = Math.max(-89F, Math.min(89F, freePitch - (float)dy * 0.22F));
     }
 
     private static void updateFreeCamera() {
@@ -406,7 +406,6 @@ public final class CinematicStudio {
             }
         }
         frame.keyframe = true;
-        save();
     }
 
     public static void nudgeSelected(String channel, float amount) {
