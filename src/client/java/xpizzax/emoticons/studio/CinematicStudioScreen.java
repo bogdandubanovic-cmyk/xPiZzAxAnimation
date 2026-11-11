@@ -36,6 +36,8 @@ public final class CinematicStudioScreen extends ForegroundScreen {
                 b -> { CinematicStudio.toggleRecording(MinecraftClient.getInstance()); clearAndInit(); });
         addButton("Camera path: "+(CinematicStudio.isCameraPreview()?"ON":"OFF"), x+614, y, 142,
                 b -> { CinematicStudio.toggleCameraPreview(); clearAndInit(); });
+        addButton(CinematicStudio.isPreviewPlaying()?"Pause":"Play", x+760, y, 78,
+                b -> { CinematicStudio.togglePreviewPlayback(); clearAndInit(); });
         addButton("Close", panelLeft+panelWidth-78, y, 62, b -> close());
 
         StudioExportSettings settings = StudioExportSettings.get();
@@ -132,7 +134,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
             StudioFrame f=CinematicStudio.selectedFrame();
             if (f!=null) {
                 context.drawTextWithShadow(textRenderer,
-                        "Selected sample "+selected+"  ·  tick "+f.tick+"  ·  "+(f.keyframe?"KEYFRAME":"sample"),
+                        "Selected sample "+selected+"  ·  tick "+f.tick+"  ·  preview "+String.format("%.1f",CinematicStudio.previewTick())+"  ·  "+(f.keyframe?"KEYFRAME":"sample"),
                         panelLeft+16,timelineY+17,0xFFDCE5EC);
                 context.drawTextWithShadow(textRenderer,
                         "Player "+String.format("%.2f, %.2f, %.2f",f.x,f.y,f.z)
