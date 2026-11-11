@@ -204,6 +204,12 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         float playhead = CinematicStudio.previewTick();
         int playX = trackX + (int)(Math.max(0F, Math.min(project.durationTicks, playhead)) * Math.max(1, trackW - 2) / Math.max(1, project.durationTicks));
         context.fill(playX - 1, firstTrackY - 5, playX + 2, firstTrackY + 66, 0xFFFF5555);
+        for (int i = 0; i < count; i++) {
+            StudioFrame frame = project.frames.get(i);
+            if (!frame.keyframe) continue;
+            int px = trackX + (int)((long)i * Math.max(1, trackW - 2) / Math.max(1, count - 1));
+            context.drawTextWithShadow(textRenderer, "◆", px - 3, firstTrackY - 7, 0xFFFFD36A);
+        }
         float playFraction = project.durationTicks <= 0 ? 0F : Math.max(0F, Math.min(1F, CinematicStudio.previewTick() / project.durationTicks));
         int playX = trackX + Math.round(playFraction * Math.max(1, trackW - 2));
         context.fill(playX, firstTrackY - 5, playX + 1, firstTrackY + 65, 0xFFFF5E67);
