@@ -6,6 +6,7 @@ import net.minecraft.client.MinecraftClient;
 
 import javax.swing.JFileChooser;
 import javax.swing.SwingUtilities;
+import java.awt.Desktop;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -31,9 +32,7 @@ public final class StudioExportSettings {
     private StudioExportSettings() {}
 
     public static StudioExportSettings get() { return current; }
-    public static void setFps(int value) {
-        current.fps = Math.max(1, Math.min(240, value)); save();
-    }
+    public static void setFps(int value) { current.fps = Math.max(1, Math.min(240, value)); save(); }
     public static void cycleFps() {
         int[] values = {30, 60, 120, 144, 240};
         int next = 0;
@@ -56,19 +55,48 @@ public final class StudioExportSettings {
                 : current.quality.equals("balanced") ? 16 : 35;
         save();
     }
+
+    /** Native file chooser is opened on the AWT event thread, never on Minecraft's render thread. */
     public static void chooseOutputDirectory() {
-        JFileChooser chooser = new JFileChooser(current.outputDirectory);
-        chooser.setDialogTitle("Choose cinematic export folder");
-        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        chooser.setAcceptAllFileFilterUsed(false);
-        if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-            current.outputDirectory = chooser.getSelectedFile().getAbsolutePath();
-            save();
+        SwingUtilities.invokeLater(() -> {
+            try {
+                JFileChooser chooser = new JFileChooser(current.outputDirectory);
+                chooser.setDialogTitle("Choose cinematic export folder");
+                chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+                chooser.setAcceptAllFileFilterUsed(false);
+                if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                    current.outputDirectory = chooser.getSelectedFile().getAbsolutePath();
+                    save();
+                }
+            } catch (Throwable error) {
+                System.err.println("[xPiZzAxAnimation] Folder chooser failed: " + error);
+            }
+        });
+    }
+
+    /** Opens the configured output directory without blocking or closing Minecraft. */
+    public static void openOutputDirectory() {
+        Path folder = Path.of(current.outputDirectory).toAbsolutePath().normalize();
+        try {
+            Files.createDirectories(folder);
+            if (!Desktop.isDesktopSupported()) {
+                System.err.println("[xPiZzAxAnimation] Desktop folder opening is not supported on this system.");
+                return;
+            }
+            new Thread(() -> {
+                try { Desktop.getDesktop().open(folder.toFile()); }
+                catch (Exception error) {
+                    System.err.println("[xPiZzAxAnimation] Could not open output folder: " + error);
+                }
+            }, "xpa-open-output-folder").start();
+        } catch (IOException error) {
+            System.err.println("[xPiZzAxAnimation] Could not create output folder: " + error);
         }
     }
+
     public static Path outputFile() {
         String safeName = current.fileName == null || current.fileName.isBlank()
-                ? "xPiZzAx-cinematic" : current.fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
+                ? "xPiZzAx-cinematic" : current.fileName.replaceAll("[\\\\/:*?\\\"<>|]", "_");
         return Path.of(current.outputDirectory).resolve(safeName + "." + current.format);
     }
     public static void save() {
