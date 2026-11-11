@@ -10,7 +10,7 @@ import xpizzax.unified.ui.UiTheme;
 
 /** Unified in-game editor: take, timeline, camera, body, named bones, eyes and project files. */
 public final class CinematicStudioScreen extends ForegroundScreen {
-    private static final String[] BONES = {"torso", "left_arm", "right_arm", "left_leg", "right_leg"};
+    private static final String[] BONES = {"body", "low_body", "head", "left_arm", "low_left_arm", "right_arm", "low_right_arm", "left_leg", "low_left_leg", "right_leg", "low_leg_right"};
     private int panelLeft, panelTop, panelWidth, panelHeight, selectedBone;
     private final Screen parent;
 
@@ -69,6 +69,12 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         addBoneButtons(x+150, boneY, "Pitch", "pitch");
         addBoneButtons(x+360, boneY, "Yaw", "yaw");
         addBoneButtons(x+570, boneY, "Roll", "roll");
+        addButton("Live preview: "+(CinematicStudio.isLivePreview()?"ON":"OFF"), x+680, boneY, 130,
+                b -> { CinematicStudio.toggleLivePreview(); clearAndInit(); });
+        int cameraMoveY = boneY + 27;
+        addEditButtons(x, cameraMoveY, "Camera X", "camera_x", .25F);
+        addEditButtons(x+150, cameraMoveY, "Camera Y", "camera_y", .25F);
+        addEditButtons(x+300, cameraMoveY, "Camera Z", "camera_z", .25F);
     }
 
     private void addButton(String label, int x, int y, int w, java.util.function.Consumer<ButtonWidget> action) {
@@ -148,18 +154,18 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         context.drawTextWithShadow(textRenderer,"Bone track: "+BONES[selectedBone]+"   ·   rotation controls add editable keyframes",
                 panelLeft+16,panelTop+305,0xFFFFFFFF);
         context.drawTextWithShadow(textRenderer,"Project: "+project.name+"   ·   auto-save: config/xpizzaxanimation/studio/last-project.xpa",
-                panelLeft+16,panelTop+365,0xFF9BA9B5);
+                panelLeft+16,panelTop+375,0xFF9BA9B5);
         context.drawTextWithShadow(textRenderer,"Export profile: "+export.fps+" FPS · "+export.width+"×"+export.height
                 +" · "+export.quality+" · "+export.bitrateMbps+" Mbps",
-                panelLeft+16,panelTop+382,0xFF9BA9B5);
+                panelLeft+16,panelTop+392,0xFF9BA9B5);
         context.drawTextWithShadow(textRenderer,"Output: "+export.outputDirectory,
-                panelLeft+16,panelTop+399,0xFF9BA9B5);
+                panelLeft+16,panelTop+409,0xFF9BA9B5);
         context.drawTextWithShadow(textRenderer,
                 "Export settings are saved; MP4 frame rendering/encoding is not yet connected.",
-                panelLeft+16,panelTop+416,0xFFFFC857);
+                panelLeft+16,panelTop+426,0xFFFFC857);
         context.drawTextWithShadow(textRenderer,
                 "ReplayMod is not controlled by this editor. F8 records this mod's own take.",
-                panelLeft+16,panelTop+433,0xFF9BA9B5);
+                panelLeft+16,panelTop+443,0xFF9BA9B5);
     }
 
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
