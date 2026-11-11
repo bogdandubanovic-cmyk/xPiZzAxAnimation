@@ -384,11 +384,10 @@ public final class CinematicStudioScreen extends ForegroundScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_SPACE && !isControlDown()) {
-            CinematicStudio.togglePreviewPlayback();
+        if (keyCode == GLFW.GLFW_KEY_SPACE) {
+            CinematicStudio.toggleTimelineVisible();
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_SPACE) { CinematicStudio.toggleTimelineVisible(); return true; }
         if (isCameraKey(keyCode)) {
             CinematicStudio.cameraKey(keyCode, true);
             return true;
@@ -404,8 +403,6 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         }
         return super.keyReleased(keyCode, scanCode, modifiers);
     }
-
-    private boolean isControlDown() { return (client != null && client.options != null && client.options.sneakKey.isPressed()); }
 
     private static boolean isCameraKey(int key) {
         return key == GLFW.GLFW_KEY_W || key == GLFW.GLFW_KEY_A || key == GLFW.GLFW_KEY_S
