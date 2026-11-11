@@ -174,8 +174,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
     private void drawTimeline(DrawContext context) {
         context.drawTextWithShadow(textRenderer, "ТАЙМЛАЙН", 22, timelineY + 8, TEXT);
         StudioProject project = CinematicStudio.project();
-        context.drawTextWithShadow(textRenderer, project.frames.size() +  " + "кадров  ·  " + "
-                + project.durationTicks + " ticks", 22, timelineY + 24, MUTED);
+        context.drawTextWithShadow(textRenderer, project.frames.size() + " кадров  ·  " + project.durationTicks + " тактов", 22, timelineY + 24, MUTED);
         String[] lanes = {"КАМЕРА", "ТЕЛО", "ЭМОУКРАФТ", "ГЛАЗА"};
         int firstTrackY = timelineY + 17;
         for (int lane = 0; lane < lanes.length; lane++) {
