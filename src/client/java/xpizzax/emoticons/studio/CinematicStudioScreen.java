@@ -24,7 +24,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
     private static final String[] BONE_LABELS = {
             "Head", "Body", "Waist", "Left arm", "Left forearm",
             "Right arm", "Right forearm", "Left leg", "Left lower leg",
-            "Right leg", "Right lower leg", "Eyes / gaze"
+            "Правая нога", "Правая голень", "Глаза / взгляд"
     };
 
     private static final int PANEL = 0xD90D1421;
@@ -68,11 +68,11 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         addButton(CinematicStudio.isPreviewPlaying() ? "Pause" : "Play", x, y, 52,
                 b -> { CinematicStudio.togglePreviewPlayback(); clearAndInit(); });
         x += 56;
-        addButton("Save", x, y, 48, b -> CinematicStudio.save());
-        x += 52;
-        addButton("Open", x, y, 48, b -> CinematicStudio.openProject());
-        x += 52;
-        addButton("Folder", x, y, 54, b -> CinematicStudio.openProjectDirectory());
+        addButton("Сохранить", x, y, 72, b -> CinematicStudio.saveProjectAs());
+        x += 76;
+        addButton("Открыть", x, y, 62, b -> CinematicStudio.openProject());
+        x += 66;
+        addButton("Папка", x, y, 54, b -> CinematicStudio.openProjectDirectory());
         x += 58;
         addButton("×", x, y, 28, b -> close());
     }
@@ -91,10 +91,10 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         panel(context, rightX, rightY, rightW, rightH, PANEL);
         panel(context, 12, timelineY, width - 24, 92, PANEL_ALT);
 
-        context.drawTextWithShadow(textRenderer, "xPiZzAxAnimation  /  STUDIO",
+        context.drawTextWithShadow(textRenderer, "xPiZzAxAnimation  /  СТУДИЯ",
                 22, 17, TEXT);
         context.drawTextWithShadow(textRenderer,
-                "Right mouse + drag: look   ·   WASD: move   ·   Space / Shift: up / down   ·   Ctrl: faster",
+                "ПКМ + мышь: обзор   ·   WASD: движение   ·   Пробел: пуск / пауза   ·   Shift: вниз   ·   Ctrl: быстрее",
                 190, 17, MUTED);
 
         drawPartsPanel(context, mouseX, mouseY);
@@ -105,16 +105,16 @@ public final class CinematicStudioScreen extends ForegroundScreen {
             context.fill(22, 40, 28, 46, 0xFFFF5555);
             context.drawTextWithShadow(textRenderer, "REC", 34, 39, 0xFFFF7777);
         } else {
-            context.drawTextWithShadow(textRenderer, "LIVE 3D VIEWPORT", 22, 39, CYAN);
+            context.drawTextWithShadow(textRenderer, "ОКНО 3D-ПРЕДПРОСМОТРА", 22, 39, CYAN);
         }
         context.drawTextWithShadow(textRenderer,
-                "The character stays in the world behind this interface. ReplayMod camera/playback is left alone.",
+                "Персонаж отображается в игровом мире. ReplayMod не изменяется.",
                 22, height - 12, MUTED);
         renderWidgets(context, mouseX, mouseY, delta);
     }
 
     private void drawPartsPanel(DrawContext context, int mouseX, int mouseY) {
-        context.drawTextWithShadow(textRenderer, "CHARACTER", leftX + 10, leftY + 10, CYAN);
+        context.drawTextWithShadow(textRenderer, "ЧАСТИ ТЕЛА", leftX + 10, leftY + 10, CYAN);
         int rowY = leftY + 30;
         for (int i = 0; i < BONE_IDS.length; i++) {
             String id = BONE_IDS[i];
@@ -129,13 +129,13 @@ public final class CinematicStudioScreen extends ForegroundScreen {
     }
 
     private void drawInspector(DrawContext context, int mouseX, int mouseY) {
-        context.drawTextWithShadow(textRenderer, "TRANSFORM", rightX + 10, rightY + 10, CYAN);
+        context.drawTextWithShadow(textRenderer, "ТРАНСФОРМАЦИЯ", rightX + 10, rightY + 10, CYAN);
         context.drawTextWithShadow(textRenderer, labelForBone(selectedBone), rightX + 10, rightY + 28, TEXT);
 
         int tabY = rightY + 49;
-        drawTab(context, "Rotate", "rotate", rightX + 7, tabY, 56, mouseX, mouseY);
-        drawTab(context, "Move", "move", rightX + 66, tabY, 52, mouseX, mouseY);
-        drawTab(context, "Scale", "scale", rightX + 121, tabY, 60, mouseX, mouseY);
+        drawTab(context, "Вращение", "rotate", rightX + 7, tabY, 56, mouseX, mouseY);
+        drawTab(context, "Позиция", "move", rightX + 66, tabY, 52, mouseX, mouseY);
+        drawTab(context, "Масштаб", "scale", rightX + 121, tabY, 60, mouseX, mouseY);
 
         for (int i = 0; i < 3; i++) {
             int y = rightY + 91 + i * 47;
@@ -155,28 +155,28 @@ public final class CinematicStudioScreen extends ForegroundScreen {
 
         if ("eyes".equals(selectedBone)) {
             int expressionY = rightY + 242;
-            context.drawTextWithShadow(textRenderer, "EXPRESSION", rightX + 10, expressionY, CYAN);
-            drawExpression(context, "Normal", "normal", rightX + 8, expressionY + 18, mouseX, mouseY);
-            drawExpression(context, "Blink", "blink", rightX + 66, expressionY + 18, mouseX, mouseY);
-            drawExpression(context, "Happy", "happy", rightX + 124, expressionY + 18, mouseX, mouseY);
-            context.drawTextWithShadow(textRenderer, "Gaze values are stored per keyframe.",
+            context.drawTextWithShadow(textRenderer, "ЭМОЦИЯ", rightX + 10, expressionY, CYAN);
+            drawExpression(context, "Обычная", "normal", rightX + 8, expressionY + 18, mouseX, mouseY);
+            drawExpression(context, "Моргание", "blink", rightX + 66, expressionY + 18, mouseX, mouseY);
+            drawExpression(context, "Радость", "happy", rightX + 124, expressionY + 18, mouseX, mouseY);
+            context.drawTextWithShadow(textRenderer, "Взгляд сохраняется в ключе.",
                     rightX + 10, expressionY + 51, MUTED);
         } else {
-            context.drawTextWithShadow(textRenderer, "Drag a slider to pose this part.",
+            context.drawTextWithShadow(textRenderer, "Потяни ползунок, чтобы изменить часть.",
                     rightX + 10, rightY + 245, MUTED);
-            context.drawTextWithShadow(textRenderer, "Edits add a keyframe automatically.",
+            context.drawTextWithShadow(textRenderer, "Изменения создают ключевой кадр.",
                     rightX + 10, rightY + 260, MUTED);
         }
-        context.drawTextWithShadow(textRenderer, "Selected: " + labelForBone(selectedBone),
+        context.drawTextWithShadow(textRenderer, "Выбрано: " + labelForBone(selectedBone),
                 rightX + 10, rightY + rightH - 26, MUTED);
     }
 
     private void drawTimeline(DrawContext context) {
-        context.drawTextWithShadow(textRenderer, "TAKE", 22, timelineY + 8, TEXT);
+        context.drawTextWithShadow(textRenderer, "ТАЙМЛАЙН", 22, timelineY + 8, TEXT);
         StudioProject project = CinematicStudio.project();
-        context.drawTextWithShadow(textRenderer, project.frames.size() + " samples  ·  "
+        context.drawTextWithShadow(textRenderer, project.frames.size() +  " + "кадров  ·  " + "
                 + project.durationTicks + " ticks", 22, timelineY + 24, MUTED);
-        String[] lanes = {"CAMERA", "BODY", "EMOTECRAFT", "EYES"};
+        String[] lanes = {"КАМЕРА", "ТЕЛО", "ЭМОУКРАФТ", "ГЛАЗА"};
         int firstTrackY = timelineY + 17;
         for (int lane = 0; lane < lanes.length; lane++) {
             int y = firstTrackY + lane * 17;
@@ -184,7 +184,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
             context.fill(trackX, y + 5, trackX + trackW, y + 7, BORDER);
         }
         if (project.frames.isEmpty()) {
-            context.drawTextWithShadow(textRenderer, "Record a take or add a pose to start editing.",
+            context.drawTextWithShadow(textRenderer, "Нажми «Запись» или добавь позу, чтобы начать.",
                     trackX, firstTrackY + 10, MUTED);
             return;
         }
@@ -197,16 +197,19 @@ public final class CinematicStudioScreen extends ForegroundScreen {
                 int y = firstTrackY + lane * 17;
                 boolean visible = lane == 0 || (lane == 1 && !frame.bones.isEmpty())
                         || (lane == 2 && frame.emotecraftPose)
-                        || (lane == 3 && frame.eyes != null);
-                if (visible) context.fill(px, y, px + 2, y + 12,
-                        i == CinematicStudio.selectedFrameIndex() ? 0xFFFFD36A : laneColor(lane));
+                        || (lane == 3 && frame.keyframe);
+                if (visible) context.fill(px - (frame.keyframe ? 2 : 0), y, px + (frame.keyframe ? 4 : 2), y + (frame.keyframe ? 13 : 9),
+                        frame.keyframe ? 0xFFFFD36A : laneColor(lane));
             }
         }
+        float playhead = CinematicStudio.previewTick();
+        int playX = trackX + (int)(Math.max(0F, Math.min(project.durationTicks, playhead)) * Math.max(1, trackW - 2) / Math.max(1, project.durationTicks));
+        context.fill(playX - 1, firstTrackY - 5, playX + 2, firstTrackY + 66, 0xFFFF5555);
         int selected = CinematicStudio.selectedFrameIndex();
         if (selected >= 0 && selected < count) {
             int px = trackX + (int)((long)selected * Math.max(1, trackW - 2) / Math.max(1, count - 1));
             context.fill(px - 1, firstTrackY - 4, px + 2, firstTrackY + 64, 0xFFFFD36A);
-            context.drawTextWithShadow(textRenderer, "Frame " + selected + " / " + (count - 1),
+            context.drawTextWithShadow(textRenderer, "Кадр " + selected + " / " + (count - 1),
                     trackX, timelineY + 78, MUTED);
         }
     }
@@ -239,10 +242,10 @@ public final class CinematicStudioScreen extends ForegroundScreen {
     }
 
     private String sliderLabel(int index) {
-        if ("eyes".equals(selectedBone)) return switch (index) { case 0 -> "Gaze yaw"; case 1 -> "Gaze pitch"; default -> "Openness"; };
-        if ("rotate".equals(mode)) return switch (index) { case 0 -> "Pitch / X"; case 1 -> "Yaw / Y"; default -> "Roll / Z"; };
-        if ("move".equals(mode)) return switch (index) { case 0 -> "Position X"; case 1 -> "Position Y"; default -> "Position Z"; };
-        return switch (index) { case 0 -> "Scale X"; case 1 -> "Scale Y"; default -> "Scale Z"; };
+        if ("eyes".equals(selectedBone)) return switch (index) { case 0 -> "Взгляд по X"; case 1 -> "Взгляд по Y"; default -> "Открытие глаз"; };
+        if ("rotate".equals(mode)) return switch (index) { case 0 -> "Наклон / X"; case 1 -> "Поворот / Y"; default -> "Крен / Z"; };
+        if ("move".equals(mode)) return switch (index) { case 0 -> "Позиция X"; case 1 -> "Позиция Y"; default -> "Позиция Z"; };
+        return switch (index) { case 0 -> "Масштаб X"; case 1 -> "Масштаб Y"; default -> "Масштаб Z"; };
     }
 
     private float sliderMin(int index) {
@@ -373,6 +376,10 @@ public final class CinematicStudioScreen extends ForegroundScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_SPACE && !isControlDown()) {
+            CinematicStudio.togglePreviewPlayback();
+            return true;
+        }
         if (isCameraKey(keyCode)) {
             CinematicStudio.cameraKey(keyCode, true);
             return true;
@@ -388,6 +395,8 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         }
         return super.keyReleased(keyCode, scanCode, modifiers);
     }
+
+    private boolean isControlDown() { return (client != null && client.options != null && client.options.sneakKey.isPressed()); }
 
     private static boolean isCameraKey(int key) {
         return key == GLFW.GLFW_KEY_W || key == GLFW.GLFW_KEY_A || key == GLFW.GLFW_KEY_S
