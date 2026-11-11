@@ -118,7 +118,7 @@ public final class CinematicStudio {
 
     /** One world-tick sample. This does not change camera or player controls. */
     public static void tick(MinecraftClient client) {
-        if (!recording || client.player == null || client.world == null || client.isPaused()) return;
+        if (client.player == null || client.world == null || client.isPaused()) return;
         long now = client.world.getTime();
         if (previewPlaying && now != lastPreviewWorldTick) {
             lastPreviewWorldTick = now;
@@ -128,7 +128,7 @@ public final class CinematicStudio {
                 previewPlaying = false;
             }
         }
-        if (now == lastSampleTick) return;
+        if (!recording || now == lastSampleTick) return;
         lastSampleTick = now;
         PlayerEntity player = client.player;
         StudioFrame frame = new StudioFrame();
@@ -263,6 +263,8 @@ public final class CinematicStudio {
             loaded.frames.sort(Comparator.comparingInt(f -> f.tick));
             project = loaded;
             selectedFrame = project.frames.isEmpty() ? -1 : 0;
+            previewTick = project.frames.isEmpty() ? 0F : project.frames.get(0).tick;
+            previewPlaying = false;
             return true;
         } catch (Exception exception) {
             System.err.println("[xPiZzAxAnimation] Could not load project: " + exception.getMessage());
