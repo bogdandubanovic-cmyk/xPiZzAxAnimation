@@ -135,9 +135,9 @@ public final class CinematicStudio {
         StudioFrame frame = selectedFrame();
         if (frame == null) return;
         switch (channel) {
-            case "body_yaw" -> frame.bodyYaw += amount;
-            case "head_yaw" -> { frame.headYaw += amount; frame.eyes.lookYaw += amount; }
-            case "head_pitch" -> { frame.headPitch += amount; frame.eyes.lookPitch += amount; }
+            case "body_yaw" -> { frame.bodyYaw += amount; frame.bones.computeIfAbsent("body", key -> new StudioFrame.BonePose()).yaw += amount; }
+            case "head_yaw" -> { frame.headYaw += amount; frame.eyes.lookYaw += amount; frame.bones.computeIfAbsent("head", key -> new StudioFrame.BonePose()).yaw += amount; }
+            case "head_pitch" -> { frame.headPitch += amount; frame.eyes.lookPitch += amount; frame.bones.computeIfAbsent("head", key -> new StudioFrame.BonePose()).pitch += amount; }
             case "eye_yaw" -> frame.eyes.lookYaw += amount;
             case "eye_pitch" -> frame.eyes.lookPitch += amount;
             case "eye_open" -> frame.eyes.openness = Math.max(0F, Math.min(1F, frame.eyes.openness + amount));
