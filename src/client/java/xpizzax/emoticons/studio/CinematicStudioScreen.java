@@ -22,8 +22,8 @@ public final class CinematicStudioScreen extends ForegroundScreen {
             "right_leg", "low_leg_right", "eyes"
     };
     private static final String[] BONE_LABELS = {
-            "Head", "Body", "Waist", "Left arm", "Left forearm",
-            "Right arm", "Right forearm", "Left leg", "Left lower leg",
+            "Голова", "Тело", "Таз", "Левая рука", "Левое предплечье",
+            "Правая рука", "Правое предплечье", "Левая нога", "Левая голень",
             "Правая нога", "Правая голень", "Глаза / взгляд"
     };
 
