@@ -44,6 +44,7 @@ public final class CinematicStudio {
     private static boolean previewPlaying;
     private static boolean studioOpen;
     private static boolean freeCamera;
+    private static boolean timelineVisible = true;
     private static float previewTick;
     private static long lastPreviewWorldTick = Long.MIN_VALUE;
     private static long lastSampleTick = Long.MIN_VALUE;
@@ -58,6 +59,8 @@ public final class CinematicStudio {
     public static boolean isRecording() { return recording; }
     public static boolean isStudioOpen() { return studioOpen; }
     public static boolean isFreeCamera() { return freeCamera; }
+    public static boolean isTimelineVisible() { return timelineVisible; }
+    public static void toggleTimelineVisible() { timelineVisible = !timelineVisible; }
     public static boolean isLivePreview() { return livePreview; }
     public static void toggleLivePreview() { livePreview = !livePreview; }
     public static boolean isCameraPreview() { return cameraPreview; }
