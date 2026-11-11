@@ -60,12 +60,12 @@ public final class CinematicStudioScreen extends ForegroundScreen {
 
         int x = Math.max(12, width - 485);
         int y = 12;
-        addButton(CinematicStudio.isRecording() ? "Stop" : "● Record", x, y, 66,
+        addButton(CinematicStudio.isRecording() ? "Стоп" : "● Запись", x, y, 66,
                 b -> { CinematicStudio.toggleRecording(MinecraftClient.getInstance()); clearAndInit(); });
         x += 70;
-        addButton("Keyframe", x, y, 68, b -> CinematicStudio.addPoseKeyframe());
+        addButton("Ключ", x, y, 68, b -> CinematicStudio.addPoseKeyframe());
         x += 72;
-        addButton(CinematicStudio.isPreviewPlaying() ? "Pause" : "Play", x, y, 52,
+        addButton(CinematicStudio.isPreviewPlaying() ? "Пауза" : "▶ Пуск", x, y, 52,
                 b -> { CinematicStudio.togglePreviewPlayback(); clearAndInit(); });
         x += 56;
         addButton("Сохранить", x, y, 72, b -> CinematicStudio.saveProjectAs());
@@ -89,7 +89,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         panel(context, 12, 8, width - 24, 27, PANEL);
         panel(context, leftX, leftY, leftW, leftH, PANEL);
         panel(context, rightX, rightY, rightW, rightH, PANEL);
-        panel(context, 12, timelineY, width - 24, 92, PANEL_ALT);
+        if (CinematicStudio.isTimelineVisible()) panel(context, 12, timelineY, width - 24, 92, PANEL_ALT);
 
         context.drawTextWithShadow(textRenderer, "xPiZzAxAnimation  /  СТУДИЯ",
                 22, 17, TEXT);
@@ -99,7 +99,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
 
         drawPartsPanel(context, mouseX, mouseY);
         drawInspector(context, mouseX, mouseY);
-        drawTimeline(context);
+        if (CinematicStudio.isTimelineVisible()) drawTimeline(context);
 
         if (CinematicStudio.isRecording()) {
             context.fill(22, 40, 28, 46, 0xFFFF5555);
@@ -204,6 +204,9 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         float playhead = CinematicStudio.previewTick();
         int playX = trackX + (int)(Math.max(0F, Math.min(project.durationTicks, playhead)) * Math.max(1, trackW - 2) / Math.max(1, project.durationTicks));
         context.fill(playX - 1, firstTrackY - 5, playX + 2, firstTrackY + 66, 0xFFFF5555);
+        float playFraction = project.durationTicks <= 0 ? 0F : Math.max(0F, Math.min(1F, CinematicStudio.previewTick() / project.durationTicks));
+        int playX = trackX + Math.round(playFraction * Math.max(1, trackW - 2));
+        context.fill(playX, firstTrackY - 5, playX + 1, firstTrackY + 65, 0xFFFF5E67);
         int selected = CinematicStudio.selectedFrameIndex();
         if (selected >= 0 && selected < count) {
             int px = trackX + (int)((long)selected * Math.max(1, trackW - 2) / Math.max(1, count - 1));
@@ -341,7 +344,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         }
 
         int timelineTop = timelineY + 12;
-        if (mouseY >= timelineTop && mouseY <= timelineY + 88
+        if (CinematicStudio.isTimelineVisible() && mouseY >= timelineTop && mouseY <= timelineY + 88
                 && mouseX >= trackX && mouseX <= trackX + trackW) {
             int count = CinematicStudio.project().frames.size();
             if (count > 0) {
@@ -379,6 +382,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
             CinematicStudio.togglePreviewPlayback();
             return true;
         }
+        if (keyCode == GLFW.GLFW_KEY_SPACE) { CinematicStudio.toggleTimelineVisible(); return true; }
         if (isCameraKey(keyCode)) {
             CinematicStudio.cameraKey(keyCode, true);
             return true;
@@ -399,8 +403,8 @@ public final class CinematicStudioScreen extends ForegroundScreen {
 
     private static boolean isCameraKey(int key) {
         return key == GLFW.GLFW_KEY_W || key == GLFW.GLFW_KEY_A || key == GLFW.GLFW_KEY_S
-                || key == GLFW.GLFW_KEY_D || key == GLFW.GLFW_KEY_SPACE
-                || key == GLFW.GLFW_KEY_LEFT_SHIFT || key == GLFW.GLFW_KEY_LEFT_CONTROL;
+                || key == GLFW.GLFW_KEY_D || key == GLFW.GLFW_KEY_E
+                || key == GLFW.GLFW_KEY_Q || key == GLFW.GLFW_KEY_LEFT_CONTROL;
     }
 
     private boolean insideDock(double x, double y) {
