@@ -4,5 +4,7 @@
   "category.rpmmodels.main": "xPiZzAxAnimation",
   "rpmmodels.ui.personalization": "Персонализация",
   "rpmmodels.ui.on": "Включено",
-  "rpmmodels.ui.off": "Выключено"
+  "rpmmodels.ui.off": "Выключено",
+  "key.xpizzaxanimation.studio": "Открыть киностудию",
+  "key.xpizzaxanimation.record": "Начать / остановить запись"
 }
