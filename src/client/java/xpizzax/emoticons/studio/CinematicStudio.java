@@ -11,7 +11,9 @@ import xpizzax.emoticons.client.renderer.VanillaEmoticonsBridge;
 import xpizzax.emoticons.mixin.client.CinematicStudioCameraAccessor;
 import net.minecraft.util.math.Vec3d;
 
-import javax.swing.JFileChooser;\nimport javax.swing.SwingUtilities;\nimport javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.JFileChooser;
+import javax.swing.SwingUtilities;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
