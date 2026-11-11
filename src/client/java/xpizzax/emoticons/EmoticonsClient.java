@@ -62,6 +62,7 @@ public final class EmoticonsClient implements ClientModInitializer {
             VanillaEmoticonsBridge.tickNpcCache(client);
             CinematicStudio.tick(client);
             while (studio.wasPressed()) {
+                CinematicStudio.enterStudio(client);
                 client.setScreen(new CinematicStudioScreen(client.currentScreen));
             }
             while (record.wasPressed()) {
