@@ -26,6 +26,9 @@ public final class CinematicStudio {
     private static boolean recording;
     private static boolean livePreview;
     private static boolean cameraPreview;
+    private static boolean previewPlaying;
+    private static float previewTick;
+    private static long lastPreviewWorldTick = Long.MIN_VALUE;
     private static int selectedFrame = -1;
     private static long lastSampleTick = Long.MIN_VALUE;
 
@@ -36,12 +39,28 @@ public final class CinematicStudio {
     public static void toggleLivePreview() { livePreview = !livePreview; }
     public static boolean isCameraPreview() { return cameraPreview; }
     public static void toggleCameraPreview() { cameraPreview = !cameraPreview; }
+    public static boolean isPreviewPlaying() { return previewPlaying; }
+    public static float previewTick() { return previewTick; }
+    public static void togglePreviewPlayback() {
+        if (project.frames.isEmpty()) return;
+        if (previewPlaying) {
+            previewPlaying = false;
+            int nearest = 0;
+            for (int i = 1; i < project.frames.size(); i++)
+                if (Math.abs(project.frames.get(i).tick-previewTick) < Math.abs(project.frames.get(nearest).tick-previewTick)) nearest = i;
+            selectFrame(nearest);
+        } else {
+            if (selectedFrame() == null || previewTick >= project.durationTicks) previewTick = 0F;
+            previewPlaying = true;
+            lastPreviewWorldTick = Long.MIN_VALUE;
+        }
+    }
     public static void applyCamera(Camera camera) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (!cameraPreview || client.player == null || client.world == null) return;
         StudioFrame selected = selectedFrame();
         if (selected == null) return;
-        StudioFrame pose = StudioInterpolator.sample(project, selected.tick);
+        StudioFrame pose = StudioInterpolator.sample(project, previewPlaying ? previewTick : selected.tick);
         if (pose == null) return;
         camera.setPos(pose.cameraX, pose.cameraY, pose.cameraZ);
         camera.setRotation(pose.cameraYaw, pose.cameraPitch);
@@ -60,7 +79,7 @@ public final class CinematicStudio {
         if (!livePreview || client.player == null || entity != client.player) return;
         StudioFrame selected = selectedFrame();
         if (selected == null) return;
-        StudioFrame pose = StudioInterpolator.sample(project, selected.tick);
+        StudioFrame pose = StudioInterpolator.sample(project, previewPlaying ? previewTick : selected.tick);
         if (pose == null) return;
         for (var entry : pose.bones.entrySet()) {
             Rig.Bone bone = rig.bones.get(entry.getKey());
@@ -83,6 +102,7 @@ public final class CinematicStudio {
         selectedFrame = -1;
         lastSampleTick = Long.MIN_VALUE;
         recording = true;
+        previewPlaying = false;
     }
 
     public static void stopRecording() {
@@ -100,6 +120,14 @@ public final class CinematicStudio {
     public static void tick(MinecraftClient client) {
         if (!recording || client.player == null || client.world == null || client.isPaused()) return;
         long now = client.world.getTime();
+        if (previewPlaying && now != lastPreviewWorldTick) {
+            lastPreviewWorldTick = now;
+            previewTick += 1F;
+            if (previewTick >= project.durationTicks) {
+                previewTick = project.durationTicks;
+                previewPlaying = false;
+            }
+        }
         if (now == lastSampleTick) return;
         lastSampleTick = now;
         PlayerEntity player = client.player;
@@ -122,8 +150,10 @@ public final class CinematicStudio {
     }
 
     public static void selectFrame(int index) {
-        if (project.frames.isEmpty()) { selectedFrame = -1; return; }
+        if (project.frames.isEmpty()) { selectedFrame = -1; previewTick = 0F; return; }
         selectedFrame = Math.max(0, Math.min(project.frames.size() - 1, index));
+        previewTick = project.frames.get(selectedFrame).tick;
+        previewPlaying = false;
     }
 
     public static void addPoseKeyframe() {
