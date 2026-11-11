@@ -16,6 +16,7 @@ import dev.kosmx.playerAnim.impl.animation.IBendHelper;
 import dev.kosmx.playerAnim.core.util.SetableSupplier;
 import dev.kosmx.playerAnim.core.util.Vec3f;
 import xpizzax.emoticons.utils.MatrixStackUtils;
+import xpizzax.emoticons.studio.CinematicStudio;
 public final class PoseRenderer {
     private final Map<String, Vec3f> xpizzaxPlayerAnimatorBends = new HashMap<>();
     /* v6.59: feed the COMPLETE BOBJ proxy pose through AnimationApplier, not only bend.
@@ -188,6 +189,7 @@ public final class PoseRenderer {
         // Catch interactions that begin between END_CLIENT_TICK callbacks; the
         // vanilla model has already computed this frame's partial-tick context.
         rig.resetPose();animator.applyActions(entity,rig,delta);
+        CinematicStudio.applyToRig(rig, entity);
         rig.setupMatrices();
         for(String name:BONES){Rig.Bone bone=rig.bones.get(name);if(bone!=null)deltas.get(name).identity().rotateY((float)Math.PI).mul(bone.mat).mul(inverseBinds.get(name));}
         return true;
