@@ -110,7 +110,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         context.drawTextWithShadow(textRenderer, "xPiZzAxAnimation  /  CINEMATIC STUDIO",
                 panelLeft+16, panelTop+13, 0xFFFFFFFF);
         context.drawTextWithShadow(textRenderer,
-                "F7 opens this studio by default · change its key in Options → Controls",
+                "F7 opens studio · F8 starts/stops recording · both keys are rebindable in Options → Controls",
                 panelLeft+16, panelTop+27, 0xFFB8C4D0);
         renderWidgets(context, mouseX, mouseY, delta);
 
