@@ -6,185 +6,326 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 import xpizzax.unified.ui.ForegroundScreen;
-import xpizzax.unified.ui.UiTheme;
 
-/** Unified in-game editor: take, timeline, camera, body, named bones, eyes and project files. */
+import java.util.Locale;
+
+/**
+ * Responsive, unified cinematic editor.
+ * The editor uses the game world as its viewport and keeps all controls inside
+ * three clearly separated areas: tools, take/timeline and export.
+ */
 public final class CinematicStudioScreen extends ForegroundScreen {
-    private static final String[] BONES = {"body", "low_body", "head", "left_arm", "low_left_arm", "right_arm", "low_right_arm", "left_leg", "low_left_leg", "right_leg", "low_leg_right"};
-    private int panelLeft, panelTop, panelWidth, panelHeight, selectedBone;
+    private static final String[] BONES = {
+            "body", "low_body", "head", "left_arm", "low_left_arm",
+            "right_arm", "low_right_arm", "left_leg", "low_left_leg",
+            "right_leg", "low_leg_right"
+    };
+    private static final int BG = 0xF20B101B;
+    private static final int PANEL = 0xE51A2030;
+    private static final int PANEL_ALT = 0xE91F2638;
+    private static final int BORDER = 0xFF414B64;
+    private static final int ACCENT = 0xFFB56BFF;
+    private static final int CYAN = 0xFF63D9F2;
+    private static final int MUTED = 0xFF9DAAC0;
+
     private final Screen parent;
+    private int left, top, panelW, panelH;
+    private int sideW, rightW, centerX, centerW, timelineY;
+    private int selectedBone;
 
     public CinematicStudioScreen(Screen parent) {
         super(Text.literal("xPiZzAxAnimation — Cinematic Studio"));
         this.parent = parent;
     }
 
-    @Override protected void init() {
-        panelWidth = Math.min(920, width - 24);
-        panelHeight = Math.min(520, height - 16);
-        panelLeft = (width - panelWidth) / 2;
-        panelTop = (height - panelHeight) / 2;
-        int x = panelLeft + 16, y = panelTop + 42;
+    @Override
+    protected void init() {
+        clearChildren();
+        left = 18;
+        top = 16;
+        panelW = Math.max(320, width - 36);
+        panelH = Math.max(260, height - 32);
 
-        addButton("Open project", x, y, 94, b -> { CinematicStudio.openProject(); clearAndInit(); });
-        addButton("Load last", x+98, y, 82, b -> { CinematicStudio.loadLastProject(); clearAndInit(); });
-        addButton("Save", x+184, y, 62, b -> CinematicStudio.save());
-        addButton("Save as…", x+250, y, 78, b -> CinematicStudio.saveProjectAs());
-        addButton("Keyframe", x+332, y, 78, b -> { CinematicStudio.addPoseKeyframe(); clearAndInit(); });
-        addButton("Delete frame", x+414, y, 92, b -> { CinematicStudio.deleteSelectedFrame(); clearAndInit(); });
-        addButton(CinematicStudio.isRecording() ? "Stop take" : "Record take", x+510, y, 100,
+        // Layout adapts to Minecraft GUI scale and window size.
+        sideW = clamp(width / 8, 112, 166);
+        rightW = clamp(width / 5, 178, 248);
+        int gap = 10;
+        centerX = left + 12 + sideW + gap;
+        centerW = Math.max(150, panelW - sideW - rightW - 46 - gap * 2);
+        int rightX = centerX + centerW + gap;
+        int contentTop = top + 58;
+        int contentBottom = top + panelH - 126;
+        int contentH = Math.max(130, contentBottom - contentTop);
+        timelineY = top + panelH - 112;
+
+        // Header actions.
+        int headerY = top + 15;
+        int closeW = 28;
+        addButton("×", left + panelW - closeW - 12, headerY, closeW, 20, b -> close());
+        int actionRight = left + panelW - closeW - 20;
+        int actionW = clamp(width / 9, 86, 128);
+        addButton("Save project", actionRight - actionW, headerY, actionW, 20,
+                b -> { CinematicStudio.save(); clearAndInit(); });
+        addButton("Save as…", actionRight - actionW * 2 - 5, headerY, actionW, 20,
+                b -> { CinematicStudio.saveProjectAs(); clearAndInit(); });
+        addButton("Open project", actionRight - actionW * 3 - 10, headerY, actionW, 20,
+                b -> { CinematicStudio.openProject(); clearAndInit(); });
+        addButton(CinematicStudio.isRecording() ? "Stop take" : "● Record",
+                actionRight - actionW * 4 - 15, headerY, actionW, 20,
                 b -> { CinematicStudio.toggleRecording(MinecraftClient.getInstance()); clearAndInit(); });
-        addButton("Camera path: "+(CinematicStudio.isCameraPreview()?"ON":"OFF"), x+614, y, 142,
-                b -> { CinematicStudio.toggleCameraPreview(); clearAndInit(); });
-        addButton(CinematicStudio.isPreviewPlaying()?"Pause":"Play", x+760, y, 78,
-                b -> { CinematicStudio.togglePreviewPlayback(); clearAndInit(); });
-        addButton("Close", panelLeft+panelWidth-78, y, 62, b -> close());
 
+        // Left tool rail.
+        int lx = left + 12;
+        int ly = contentTop + 8;
+        int innerW = sideW - 16;
+        section(lx, ly, "RECORDING");
+        ly += 18;
+        addButton(CinematicStudio.isRecording() ? "Stop recording" : "Start recording",
+                lx, ly, innerW, 21, b -> { CinematicStudio.toggleRecording(MinecraftClient.getInstance()); clearAndInit(); });
+        ly += 32;
+        section(lx, ly, "CAMERA");
+        ly += 18;
+        addButton("Add keyframe", lx, ly, innerW, 20, b -> { CinematicStudio.addPoseKeyframe(); clearAndInit(); });
+        ly += 24;
+        addButton("Camera path " + (CinematicStudio.isCameraPreview() ? "ON" : "OFF"),
+                lx, ly, innerW, 20, b -> { CinematicStudio.toggleCameraPreview(); clearAndInit(); });
+        ly += 32;
+        section(lx, ly, "ANIMATION");
+        ly += 18;
+        addButton("Bone: " + shortBone(BONES[selectedBone]), lx, ly, innerW, 20,
+                b -> { selectedBone = (selectedBone + 1) % BONES.length; clearAndInit(); });
+        ly += 24;
+        addButton("Live preview " + (CinematicStudio.isLivePreview() ? "ON" : "OFF"),
+                lx, ly, innerW, 20, b -> { CinematicStudio.toggleLivePreview(); clearAndInit(); });
+        ly += 32;
+        section(lx, ly, "PROJECT");
+        ly += 18;
+        addButton("Load last", lx, ly, innerW, 20, b -> { CinematicStudio.loadLastProject(); clearAndInit(); });
+        ly += 24;
+        addButton("Delete frame", lx, ly, innerW, 20, b -> { CinematicStudio.deleteSelectedFrame(); clearAndInit(); });
+
+        // Centre inspector: compact, non-overlapping grouped controls.
+        int cy = contentTop + 8;
+        section(centerX + 8, cy, "CAMERA  /  BODY  /  EYES");
+        cy += 24;
+        int colGap = 8;
+        int colW = Math.max(100, (centerW - 24) / 3);
+        addNudgePair(centerX + 8, cy, colW, "Body yaw", "body_yaw", 5F);
+        addNudgePair(centerX + 16 + colW, cy, colW, "Head yaw", "head_yaw", 5F);
+        addNudgePair(centerX + 24 + colW * 2, cy, colW, "Head pitch", "head_pitch", 5F);
+        cy += 44;
+        addNudgePair(centerX + 8, cy, colW, "Camera yaw", "camera_yaw", 5F);
+        addNudgePair(centerX + 16 + colW, cy, colW, "Camera pitch", "camera_pitch", 5F);
+        addNudgePair(centerX + 24 + colW * 2, cy, colW, "Camera FOV", "camera_fov", 2F);
+        cy += 44;
+        addNudgePair(centerX + 8, cy, colW, "Eye yaw", "eye_yaw", 3F);
+        addNudgePair(centerX + 16 + colW, cy, colW, "Eye pitch", "eye_pitch", 3F);
+        addNudgePair(centerX + 24 + colW * 2, cy, colW, "Eye openness", "eye_open", .1F);
+        cy += 44;
+        section(centerX + 8, cy, "EYE EXPRESSION");
+        cy += 20;
+        int expressionW = Math.min(86, Math.max(54, (centerW - 36) / 3));
+        addButton("Normal", centerX + 8, cy, expressionW, 20,
+                b -> { CinematicStudio.setExpression("normal"); clearAndInit(); });
+        addButton("Blink", centerX + 16 + expressionW, cy, expressionW, 20,
+                b -> { CinematicStudio.setExpression("blink"); clearAndInit(); });
+        addButton("Happy", centerX + 24 + expressionW * 2, cy, expressionW, 20,
+                b -> { CinematicStudio.setExpression("happy"); clearAndInit(); });
+        cy += 34;
+        section(centerX + 8, cy, "BONE ROTATION");
+        cy += 20;
+        int boneCol = Math.max(84, (centerW - 34) / 3);
+        addBonePair(centerX + 8, cy, boneCol, "Pitch", "pitch");
+        addBonePair(centerX + 16 + boneCol, cy, boneCol, "Yaw", "yaw");
+        addBonePair(centerX + 24 + boneCol * 2, cy, boneCol, "Roll", "roll");
+        cy += 42;
+        section(centerX + 8, cy, "CAMERA POSITION");
+        cy += 20;
+        addNudgePair(centerX + 8, cy, colW, "Camera X", "camera_x", .25F);
+        addNudgePair(centerX + 16 + colW, cy, colW, "Camera Y", "camera_y", .25F);
+        addNudgePair(centerX + 24 + colW * 2, cy, colW, "Camera Z", "camera_z", .25F);
+
+        // Right export card.
+        int rx = rightX + 8;
+        int rw = rightW - 16;
+        int ry = contentTop + 8;
+        section(rx, ry, "VIDEO EXPORT");
+        ry += 24;
         StudioExportSettings settings = StudioExportSettings.get();
-        int exportY = y + 27;
-        addButton("FPS: "+settings.fps, x, exportY, 92, b -> { StudioExportSettings.cycleFps(); clearAndInit(); });
-        addButton("Size: "+settings.width+"×"+settings.height, x+96, exportY, 160,
+        addButton("FPS  ·  " + settings.fps, rx, ry, rw, 22,
+                b -> { StudioExportSettings.cycleFps(); clearAndInit(); });
+        ry += 28;
+        addButton("Resolution  ·  " + settings.width + "×" + settings.height, rx, ry, rw, 22,
                 b -> { StudioExportSettings.cycleResolution(); clearAndInit(); });
-        addButton("Quality: "+settings.quality, x+260, exportY, 130,
+        ry += 28;
+        addButton("Quality  ·  " + settings.quality, rx, ry, rw, 22,
                 b -> { StudioExportSettings.cycleQuality(); clearAndInit(); });
-        addButton("Output folder…", x+394, exportY, 130,
+        ry += 28;
+        addButton("Choose output folder…", rx, ry, rw, 22,
                 b -> { StudioExportSettings.chooseOutputDirectory(); clearAndInit(); });
+        ry += 38;
+        addButton(CinematicStudio.isPreviewPlaying() ? "Pause preview" : "▶  Preview take",
+                rx, ry, rw, 24, b -> { CinematicStudio.togglePreviewPlayback(); clearAndInit(); });
+        ry += 34;
+        addButton("Add pose keyframe", rx, ry, rw, 22,
+                b -> { CinematicStudio.addPoseKeyframe(); clearAndInit(); });
 
-        int controlsY = panelTop + 220;
-        addEditButtons(x, controlsY, "Body yaw", "body_yaw", 5F);
-        addEditButtons(x+150, controlsY, "Head yaw", "head_yaw", 5F);
-        addEditButtons(x+300, controlsY, "Head pitch", "head_pitch", 5F);
-        addEditButtons(x+450, controlsY, "Camera yaw", "camera_yaw", 5F);
-        addEditButtons(x+600, controlsY, "Camera pitch", "camera_pitch", 5F);
-
-        int eyesY = controlsY + 34;
-        addEditButtons(x, eyesY, "Eye yaw", "eye_yaw", 3F);
-        addEditButtons(x+150, eyesY, "Eye pitch", "eye_pitch", 3F);
-        addEditButtons(x+300, eyesY, "Eye openness", "eye_open", .1F);
-        addEditButtons(x+450, eyesY, "Camera FOV", "camera_fov", 2F);
-        addButton("Normal eyes", x+600, eyesY, 92, b -> { CinematicStudio.setExpression("normal"); clearAndInit(); });
-        addButton("Blink", x+696, eyesY, 64, b -> { CinematicStudio.setExpression("blink"); clearAndInit(); });
-        addButton("Happy", x+764, eyesY, 70, b -> { CinematicStudio.setExpression("happy"); clearAndInit(); });
-
-        int boneY = eyesY + 36;
-        addButton("Bone: "+BONES[selectedBone], x, boneY, 142, b -> {
-            selectedBone = (selectedBone+1)%BONES.length; clearAndInit();
+        // Timeline controls are kept in their own footer row.
+        int footerY = timelineY + 67;
+        int footerX = centerX + 8;
+        addButton("◀", footerX, footerY, 28, 20, b -> {
+            CinematicStudio.selectFrame(CinematicStudio.selectedFrameIndex() - 1); clearAndInit();
         });
-        addBoneButtons(x+150, boneY, "Pitch", "pitch");
-        addBoneButtons(x+360, boneY, "Yaw", "yaw");
-        addBoneButtons(x+570, boneY, "Roll", "roll");
-        addButton("Live preview: "+(CinematicStudio.isLivePreview()?"ON":"OFF"), x+680, boneY, 130,
-                b -> { CinematicStudio.toggleLivePreview(); clearAndInit(); });
-        int cameraMoveY = boneY + 27;
-        addEditButtons(x, cameraMoveY, "Camera X", "camera_x", .25F);
-        addEditButtons(x+150, cameraMoveY, "Camera Y", "camera_y", .25F);
-        addEditButtons(x+300, cameraMoveY, "Camera Z", "camera_z", .25F);
+        addButton("▶", footerX + 32, footerY, 28, 20,
+                b -> { CinematicStudio.togglePreviewPlayback(); clearAndInit(); });
+        addButton("▶|", footerX + 64, footerY, 34, 20, b -> {
+            CinematicStudio.selectFrame(CinematicStudio.selectedFrameIndex() + 1); clearAndInit();
+        });
     }
 
-    private void addButton(String label, int x, int y, int w, ButtonWidget.PressAction action) {
+    private void addButton(String label, int x, int y, int w, int h, ButtonWidget.PressAction action) {
+        if (w < 24 || x < 0 || x + w > width || y < 0 || y + h > height) return;
         addDrawableChild(ButtonWidget.builder(Text.literal(label), action)
-                .dimensions(x, y, w, 20).build());
+                .dimensions(x, y, w, h).build());
     }
 
-    private void addEditButtons(int x, int y, String label, String channel, float step) {
-        addDrawableChild(ButtonWidget.builder(Text.literal(label+" −"), b -> {
-            CinematicStudio.nudgeSelected(channel, -step); clearAndInit();
-        }).dimensions(x, y, 68, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("+"), b -> {
-            CinematicStudio.nudgeSelected(channel, step); clearAndInit();
-        }).dimensions(x+72, y, 28, 20).build());
+    private void addNudgePair(int x, int y, int groupW, String label, String channel, float step) {
+        int buttonW = Math.max(24, Math.min(58, groupW / 2));
+        int plusW = 24;
+        drawLabelLater(label, x, y - 11);
+        addButton("−", x, y + 2, buttonW, 20,
+                b -> { CinematicStudio.nudgeSelected(channel, -step); clearAndInit(); });
+        addButton("+", x + buttonW + 3, y + 2, plusW, 20,
+                b -> { CinematicStudio.nudgeSelected(channel, step); clearAndInit(); });
     }
 
-    private void addBoneButtons(int x, int y, String label, String axis) {
-        addDrawableChild(ButtonWidget.builder(Text.literal(label+" −"), b -> {
-            CinematicStudio.nudgeBone(BONES[selectedBone], axis, -5F); clearAndInit();
-        }).dimensions(x, y, 66, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("+"), b -> {
-            CinematicStudio.nudgeBone(BONES[selectedBone], axis, 5F); clearAndInit();
-        }).dimensions(x+70, y, 28, 20).build());
+    private void addBonePair(int x, int y, int groupW, String label, String axis) {
+        int buttonW = Math.max(24, Math.min(54, groupW / 2));
+        drawLabelLater(label + " · " + shortBone(BONES[selectedBone]), x, y - 11);
+        addButton("−", x, y + 2, buttonW, 20,
+                b -> { CinematicStudio.nudgeBone(BONES[selectedBone], axis, -5F); clearAndInit(); });
+        addButton("+", x + buttonW + 3, y + 2, 24, 20,
+                b -> { CinematicStudio.nudgeBone(BONES[selectedBone], axis, 5F); clearAndInit(); });
     }
 
-    @Override protected void renderForeground(DrawContext context, int mouseX, int mouseY, float delta) {
-        UiTheme.backdrop(context, width, height);
-        UiTheme.panel(context, panelLeft, panelTop, panelWidth, panelHeight);
-        context.drawTextWithShadow(textRenderer, "xPiZzAxAnimation  /  CINEMATIC STUDIO",
-                panelLeft+16, panelTop+13, 0xFFFFFFFF);
-        context.drawTextWithShadow(textRenderer,
-                "F7 opens studio · F8 starts/stops recording · both keys are rebindable in Options → Controls",
-                panelLeft+16, panelTop+27, 0xFFB8C4D0);
-        renderWidgets(context, mouseX, mouseY, delta);
+    // Text is painted in renderForeground after the panel backgrounds.
+    private final java.util.List<Label> labels = new java.util.ArrayList<>();
+    private void drawLabelLater(String value, int x, int y) { labels.add(new Label(value, x, y)); }
+    private record Label(String value, int x, int y) {}
+
+    private void section(int x, int y, String title) { drawLabelLater(title, x, y); }
+
+    private static String shortBone(String bone) {
+        return bone.replace("low_", "").replace('_', ' ');
+    }
+    private static int clamp(int value, int min, int max) { return Math.max(min, Math.min(max, value)); }
+
+    @Override
+    protected void renderForeground(DrawContext context, int mouseX, int mouseY, float delta) {
+        // Dim the game world, then build the studio surface.
+        context.fill(0, 0, width, height, 0x99040A13);
+        fillPanel(context, left, top, panelW, panelH, BG);
+        fillPanel(context, left + 7, top + 7, panelW - 14, 38, PANEL_ALT);
+        fillPanel(context, left + 7, top + 52, sideW, panelH - 174, PANEL);
+        fillPanel(context, centerX, top + 52, centerW, panelH - 174, PANEL);
+        int rightX = centerX + centerW + 10;
+        fillPanel(context, rightX, top + 52, rightW, panelH - 174, PANEL);
+        fillPanel(context, left + 7, timelineY - 5, panelW - 14, 94, PANEL_ALT);
+        context.fill(left + 10, top + 7, left + panelW - 10, top + 9, ACCENT);
+
+        context.drawTextWithShadow(textRenderer, "xPiZzAxAnimation", left + 18, top + 17, 0xFFFFFFFF);
+        context.drawTextWithShadow(textRenderer, "CINEMATIC STUDIO  /  F7 OPEN  ·  F8 RECORD",
+                left + 18 + textRenderer.getWidth("xPiZzAxAnimation") + 10, top + 17, MUTED);
+        context.drawTextWithShadow(textRenderer, "F7/F8 can be rebound in Options → Controls",
+                left + 18, top + 34, MUTED);
+
+        for (Label label : labels) {
+            context.drawTextWithShadow(textRenderer, label.value(), label.x(), label.y(), label.value().equals(label.value().toUpperCase(Locale.ROOT)) ? CYAN : 0xFFE8ECF7);
+        }
+        labels.clear();
 
         StudioProject project = CinematicStudio.project();
-        int timelineY = panelTop + 139;
-        context.drawTextWithShadow(textRenderer, "TAKE TIMELINE  ·  "+project.frames.size()
-                +" samples  ·  "+project.durationTicks+" ticks",
-                panelLeft+16, timelineY-18, 0xFFFFFFFF);
-        int available = panelWidth-32;
-        context.fill(panelLeft+16, timelineY, panelLeft+16+available, timelineY+4, 0xFF39434D);
+        context.drawTextWithShadow(textRenderer, "TAKE TIMELINE",
+                left + 18, timelineY + 3, 0xFFFFFFFF);
+        context.drawTextWithShadow(textRenderer, project.frames.size() + " samples  ·  " + project.durationTicks + " ticks",
+                left + 18, timelineY + 17, MUTED);
+        int trackX = left + 150;
+        int trackW = panelW - 176;
+        int trackY = timelineY + 14;
+        context.fill(trackX, trackY, trackX + trackW, trackY + 3, BORDER);
+        context.drawTextWithShadow(textRenderer, "CAMERA", left + 18, trackY + 12, CYAN);
+        context.drawTextWithShadow(textRenderer, "BODY", left + 18, trackY + 27, ACCENT);
+        context.drawTextWithShadow(textRenderer, "EYES", left + 18, trackY + 42, 0xFF79D68C);
         if (!project.frames.isEmpty()) {
-            int selected = CinematicStudio.selectedFrameIndex();
             int count = project.frames.size();
-            int stride = Math.max(1, (count+159)/160);
-            for (int i=0;i<count;i+=stride) {
-                int px=panelLeft+16+(int)((long)i*available/Math.max(1,count-1));
-                StudioFrame f=project.frames.get(i);
-                int color=i==selected?0xFFFFC857:(f.keyframe?0xFF63D6FF:0xFF73C9A5);
-                context.fill(px,timelineY-5,px+2,timelineY+10,color);
+            int stride = Math.max(1, (count + 179) / 180);
+            for (int i = 0; i < count; i += stride) {
+                int px = trackX + (int)((long)i * trackW / Math.max(1, count - 1));
+                StudioFrame frame = project.frames.get(i);
+                int color = i == CinematicStudio.selectedFrameIndex() ? 0xFFFFD36A
+                        : frame.keyframe ? CYAN : 0xFF79D68C;
+                context.fill(px, trackY - 3, px + 2, trackY + 52, color);
             }
-            StudioFrame f=CinematicStudio.selectedFrame();
-            if (f!=null) {
-                context.drawTextWithShadow(textRenderer,
-                        "Selected sample "+selected+"  ·  tick "+f.tick+"  ·  preview "+String.format("%.1f",CinematicStudio.previewTick())+"  ·  "+(f.keyframe?"KEYFRAME":"sample"),
-                        panelLeft+16,timelineY+17,0xFFDCE5EC);
-                context.drawTextWithShadow(textRenderer,
-                        "Player "+String.format("%.2f, %.2f, %.2f",f.x,f.y,f.z)
-                                +"   Camera "+String.format("%.1f, %.1f, %.1f",f.cameraX,f.cameraY,f.cameraZ)
-                                +"   View "+Math.round(f.cameraYaw)+"° / "+Math.round(f.cameraPitch)+"°",
-                        panelLeft+16,timelineY+32,0xFF9BA9B5);
-                StudioFrame interpolated=CinematicStudio.previewAt(f.tick);
-                if(interpolated!=null) context.drawTextWithShadow(textRenderer,
-                        "Interpolated preview · body "+Math.round(interpolated.bodyYaw)
-                                +"° · head "+Math.round(interpolated.headYaw)+"/"+Math.round(interpolated.headPitch)
-                                +"° · eyes "+interpolated.eyes.expression+" · openness "+Math.round(interpolated.eyes.openness*100)+"%",
-                        panelLeft+16,timelineY+47,0xFF9BA9B5);
+            StudioFrame selected = CinematicStudio.selectedFrame();
+            if (selected != null) {
+                context.drawTextWithShadow(textRenderer, "Selected frame " + CinematicStudio.selectedFrameIndex()
+                                + "  ·  tick " + selected.tick + (selected.keyframe ? "  ·  KEYFRAME" : ""),
+                        left + 150, timelineY + 70, MUTED);
             }
         } else {
-            context.drawTextWithShadow(textRenderer,"No take yet. Press Record take, play normally, then stop and edit.",
-                    panelLeft+16,timelineY+17,0xFF9BA9B5);
+            context.drawTextWithShadow(textRenderer, "Start recording in-game to create a take.",
+                    trackX, trackY + 17, MUTED);
         }
 
-        StudioExportSettings export=StudioExportSettings.get();
-        context.drawTextWithShadow(textRenderer,"Camera · body · eyes",panelLeft+16,panelTop+204,0xFFFFFFFF);
-        context.drawTextWithShadow(textRenderer,"Bone track: "+BONES[selectedBone]+"   ·   rotation controls add editable keyframes",
-                panelLeft+16,panelTop+305,0xFFFFFFFF);
-        context.drawTextWithShadow(textRenderer,"Project: "+project.name+"   ·   auto-save: config/xpizzaxanimation/studio/last-project.xpa",
-                panelLeft+16,panelTop+375,0xFF9BA9B5);
-        context.drawTextWithShadow(textRenderer,"Export profile: "+export.fps+" FPS · "+export.width+"×"+export.height
-                +" · "+export.quality+" · "+export.bitrateMbps+" Mbps",
-                panelLeft+16,panelTop+392,0xFF9BA9B5);
-        context.drawTextWithShadow(textRenderer,"Output: "+export.outputDirectory,
-                panelLeft+16,panelTop+409,0xFF9BA9B5);
-        context.drawTextWithShadow(textRenderer,
-                "Export settings are saved; MP4 frame rendering/encoding is not yet connected.",
-                panelLeft+16,panelTop+426,0xFFFFC857);
-        context.drawTextWithShadow(textRenderer,
-                "ReplayMod is not controlled by this editor. Camera preview is disabled during ReplayMod playback.",
-                panelLeft+16,panelTop+443,0xFF9BA9B5);
+        StudioExportSettings export = StudioExportSettings.get();
+        context.drawTextWithShadow(textRenderer, "OUTPUT",
+                rightX + 10, top + panelH - 151, CYAN);
+        String output = export.outputDirectory.toString();
+        context.drawTextWithShadow(textRenderer, trim(output, rightW - 24),
+                rightX + 10, top + panelH - 137, MUTED);
+        context.drawTextWithShadow(textRenderer, "Export profile: " + export.fps + " FPS · "
+                + export.width + "×" + export.height + " · " + export.quality,
+                rightX + 10, top + panelH - 123, MUTED);
+        context.drawTextWithShadow(textRenderer, "MP4 rendering is not connected yet.",
+                rightX + 10, top + panelH - 109, 0xFFFFC96B);
+        context.drawTextWithShadow(textRenderer, "ReplayMod remains independent.",
+                left + 18, top + panelH - 15, MUTED);
+
+        renderWidgets(context, mouseX, mouseY, delta);
     }
 
-    @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        int timelineY=panelTop+139;
-        if(button==0 && mouseY>=timelineY-9 && mouseY<=timelineY+14
-                && mouseX>=panelLeft+16 && mouseX<=panelLeft+panelWidth-16) {
-            int count=CinematicStudio.project().frames.size();
-            if(count>0) {
-                float fraction=(float)(mouseX-(panelLeft+16))/(panelWidth-32);
-                CinematicStudio.selectFrame(Math.round(fraction*(count-1)));
+    private static String trim(String value, int maxWidth) {
+        return value.length() > 28 ? "…" + value.substring(Math.max(0, value.length() - 27)) : value;
+    }
+
+    private static void fillPanel(DrawContext context, int x, int y, int w, int h, int color) {
+        if (w <= 0 || h <= 0) return;
+        context.fill(x, y, x + w, y + h, color);
+        context.fill(x, y, x + w, y + 1, BORDER);
+        context.fill(x, y + h - 1, x + w, y + h, BORDER);
+        context.fill(x, y, x + 1, y + h, BORDER);
+        context.fill(x + w - 1, y, x + w, y + h, BORDER);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        int trackY = timelineY + 9;
+        if (button == 0 && mouseY >= trackY && mouseY <= trackY + 58
+                && mouseX >= left + 150 && mouseX <= left + panelW - 20) {
+            int count = CinematicStudio.project().frames.size();
+            if (count > 0) {
+                int trackW = panelW - 176;
+                float fraction = (float)(mouseX - (left + 150)) / Math.max(1, trackW);
+                CinematicStudio.selectFrame(Math.round(fraction * (count - 1)));
+                clearAndInit();
                 return true;
             }
         }
-        return super.mouseClicked(mouseX,mouseY,button);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    @Override public void close() { MinecraftClient.getInstance().setScreen(parent); }
+    @Override
+    public void close() {
+        MinecraftClient.getInstance().setScreen(parent);
+    }
 }
