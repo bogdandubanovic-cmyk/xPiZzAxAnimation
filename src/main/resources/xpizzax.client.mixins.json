@@ -25,7 +25,8 @@
     "ReplayGenderPlayerMixin",
     "ReplayRpmProfilePacketsMixin",
     "CinematicStudioCameraMixin",
-    "CinematicStudioCameraAccessor"
+    "CinematicStudioCameraAccessor",
+    "CinematicStudioCaptureMixin"
   ],
   "injectors": {
     "defaultRequire": 1
