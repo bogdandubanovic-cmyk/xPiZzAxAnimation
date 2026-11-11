@@ -139,6 +139,9 @@ public final class CinematicStudio {
             case "eye_yaw" -> frame.eyes.lookYaw += amount;
             case "eye_pitch" -> frame.eyes.lookPitch += amount;
             case "eye_open" -> frame.eyes.openness = Math.max(0F, Math.min(1F, frame.eyes.openness + amount));
+            case "camera_x" -> frame.cameraX += amount;
+            case "camera_y" -> frame.cameraY += amount;
+            case "camera_z" -> frame.cameraZ += amount;
             case "camera_yaw" -> frame.cameraYaw += amount;
             case "camera_pitch" -> frame.cameraPitch = Math.max(-89F, Math.min(89F, frame.cameraPitch + amount));
             case "camera_fov" -> frame.cameraFov = Math.max(20F, Math.min(110F, frame.cameraFov + amount));
