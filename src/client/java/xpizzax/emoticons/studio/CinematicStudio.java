@@ -8,6 +8,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.LivingEntity;
 import xpizzax.emoticons.animation.Rig;
 import xpizzax.emoticons.client.renderer.VanillaEmoticonsBridge;
+import xpizzax.emoticons.mixin.client.CinematicStudioCameraAccessor;
 import net.minecraft.util.math.Vec3d;
 
 import javax.swing.JFileChooser;
@@ -62,8 +63,9 @@ public final class CinematicStudio {
         if (selected == null) return;
         StudioFrame pose = StudioInterpolator.sample(project, previewPlaying ? previewTick : selected.tick);
         if (pose == null) return;
-        camera.setPos(pose.cameraX, pose.cameraY, pose.cameraZ);
-        camera.setRotation(pose.cameraYaw, pose.cameraPitch);
+        CinematicStudioCameraAccessor accessor = (CinematicStudioCameraAccessor)(Object)camera;
+        accessor.xpizzax$setPos(pose.cameraX, pose.cameraY, pose.cameraZ);
+        accessor.xpizzax$setRotation(pose.cameraYaw, pose.cameraPitch);
     }
     public static StudioProject project() { return project; }
     public static int selectedFrameIndex() { return selectedFrame; }
