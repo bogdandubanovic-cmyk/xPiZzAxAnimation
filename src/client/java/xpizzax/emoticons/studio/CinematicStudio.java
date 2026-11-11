@@ -7,6 +7,7 @@ import net.minecraft.client.render.Camera;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.LivingEntity;
 import xpizzax.emoticons.animation.Rig;
+import xpizzax.emoticons.client.renderer.VanillaEmoticonsBridge;
 import net.minecraft.util.math.Vec3d;
 
 import javax.swing.JFileChooser;
@@ -102,6 +103,7 @@ public final class CinematicStudio {
         frame.cameraX = pos.x; frame.cameraY = pos.y; frame.cameraZ = pos.z;
         frame.cameraYaw = camera.getYaw();
         frame.cameraPitch = camera.getPitch();
+        VanillaEmoticonsBridge.captureStudioPose(player, frame);
         project.frames.add(frame);
         project.durationTicks = frame.tick;
     }
