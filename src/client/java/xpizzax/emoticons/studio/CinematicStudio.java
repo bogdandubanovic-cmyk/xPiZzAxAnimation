@@ -133,8 +133,8 @@ public final class CinematicStudio {
     /** Right-drag camera look, independent from the player's view controls. */
     public static void rotateFreeCamera(double dx, double dy) {
         if (!studioOpen || !freeCamera) return;
-        freeYaw = wrapDegrees(freeYaw - (float)dx * 0.22F);
-        freePitch = Math.max(-89F, Math.min(89F, freePitch - (float)dy * 0.22F));
+        freeYaw = wrapDegrees(freeYaw + (float)dx * 0.22F);
+        freePitch = Math.max(-89F, Math.min(89F, freePitch + (float)dy * 0.22F));
     }
 
     private static void updateFreeCamera() {
@@ -149,8 +149,8 @@ public final class CinematicStudio {
         double dx = 0, dy = 0, dz = 0;
         if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_W)) { dx += forwardX; dy += forwardY; dz += forwardZ; }
         if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_S)) { dx -= forwardX; dy -= forwardY; dz -= forwardZ; }
-        if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_D)) { dx += rightX; dz += rightZ; }
-        if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_A)) { dx -= rightX; dz -= rightZ; }
+        if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_D)) { dx -= rightX; dz -= rightZ; }
+        if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_A)) { dx += rightX; dz += rightZ; }
         if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_SPACE)) dy += 1;
         if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_LEFT_SHIFT)) dy -= 1;
         double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
