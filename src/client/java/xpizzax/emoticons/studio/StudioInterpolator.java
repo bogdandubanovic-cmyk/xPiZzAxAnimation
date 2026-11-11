@@ -1,5 +1,6 @@
 package xpizzax.emoticons.studio;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -9,7 +10,9 @@ public final class StudioInterpolator {
     private StudioInterpolator() {}
 
     public static StudioFrame sample(StudioProject project, float tick) {
-        List<StudioFrame> frames = project.frames;
+        List<StudioFrame> frames = new ArrayList<>();
+        for (StudioFrame frame : project.frames) if (frame.keyframe) frames.add(frame);
+        if (frames.size() < 2) frames = project.frames;
         if (frames.isEmpty()) return null;
         StudioFrame first = frames.get(0), last = frames.get(frames.size() - 1);
         if (tick <= first.tick) return copy(first);
