@@ -13,7 +13,6 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 import xpizzax.emoticons.animation.Rig;
-import xpizzax.emoticons.client.renderer.OptionalMods;
 import xpizzax.emoticons.client.renderer.VanillaEmoticonsBridge;
 import xpizzax.emoticons.mixin.client.CinematicStudioCameraAccessor;
 
@@ -151,8 +150,8 @@ public final class CinematicStudio {
         if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_S)) { dx -= forwardX; dy -= forwardY; dz -= forwardZ; }
         if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_D)) { dx -= rightX; dz -= rightZ; }
         if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_A)) { dx += rightX; dz += rightZ; }
-        if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_SPACE)) dy += 1;
-        if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_LEFT_SHIFT)) dy -= 1;
+        if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_E)) dy += 1;
+        if (CAMERA_KEYS.contains(GLFW.GLFW_KEY_Q)) dy -= 1;
         double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (length > 0.0001D) {
             double speed = CAMERA_KEYS.contains(GLFW.GLFW_KEY_LEFT_CONTROL) ? 0.72D : 0.22D;
@@ -210,8 +209,7 @@ public final class CinematicStudio {
     public static void captureEmotecraftPose(LivingEntity entity, PlayerEntityModel<?> model) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (!recording || client.player == null || entity != client.player
-                || !(entity instanceof AbstractClientPlayerEntity player)
-                || !OptionalMods.isEmotecraftPlaying(player)) return;
+                || !(entity instanceof AbstractClientPlayerEntity)) return;
         LATEST_EMOTE_POSE.clear();
         capturePart(model, "head", model.head);
         capturePart(model, "hat", model.hat);
@@ -324,8 +322,7 @@ public final class CinematicStudio {
         frame.cameraYaw = freeCamera ? freeYaw : camera.getYaw();
         frame.cameraPitch = freeCamera ? freePitch : camera.getPitch();
         VanillaEmoticonsBridge.captureStudioPose(player, frame);
-        if (lastEmoteCaptureTick >= 0 && now - lastEmoteCaptureTick <= 2
-                && !LATEST_EMOTE_POSE.isEmpty()) {
+        if (!LATEST_EMOTE_POSE.isEmpty()) {
             frame.emotecraftPose = true;
             LATEST_EMOTE_POSE.forEach((name, pose) -> frame.emotecraftModel.put(name, copy(pose)));
         }
