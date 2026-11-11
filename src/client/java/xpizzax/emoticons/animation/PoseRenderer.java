@@ -197,6 +197,7 @@ public final class PoseRenderer {
 
     /** Copies the currently evaluated BOBJ rig pose into a take sample. */
     public void captureStudioPose(LivingEntity entity, xpizzax.emoticons.studio.StudioFrame frame) {
+        rig.setHeadAngles(entity.headYaw - entity.bodyYaw, entity.getPitch());
         rig.resetPose();
         animator.applyActions(entity, rig, 1F);
         for (Rig.Bone bone : rig.orderedBones) {
