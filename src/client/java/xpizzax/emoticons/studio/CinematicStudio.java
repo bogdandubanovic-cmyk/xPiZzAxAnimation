@@ -5,6 +5,8 @@ import com.google.gson.GsonBuilder;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.LivingEntity;
+import xpizzax.emoticons.animation.Rig;
 import net.minecraft.util.math.Vec3d;
 
 import javax.swing.JFileChooser;
@@ -21,12 +23,15 @@ public final class CinematicStudio {
             .resolve("config").resolve("xpizzaxanimation").resolve("studio");
     private static StudioProject project = new StudioProject();
     private static boolean recording;
+    private static boolean livePreview;
     private static int selectedFrame = -1;
     private static long lastSampleTick = Long.MIN_VALUE;
 
     private CinematicStudio() {}
 
     public static boolean isRecording() { return recording; }
+    public static boolean isLivePreview() { return livePreview; }
+    public static void toggleLivePreview() { livePreview = !livePreview; }
     public static StudioProject project() { return project; }
     public static int selectedFrameIndex() { return selectedFrame; }
     public static StudioFrame selectedFrame() {
@@ -34,6 +39,25 @@ public final class CinematicStudio {
         return project.frames.get(selectedFrame);
     }
     public static StudioFrame previewAt(float tick) { return StudioInterpolator.sample(project, tick); }
+    
+    /** Applies editable bone tracks only to the local player's xPiZzAx rig preview. */
+    public static void applyToRig(Rig rig, LivingEntity entity) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (!livePreview || client.player == null || entity != client.player) return;
+        StudioFrame selected = selectedFrame();
+        if (selected == null) return;
+        StudioFrame pose = StudioInterpolator.sample(project, selected.tick);
+        if (pose == null) return;
+        for (var entry : pose.bones.entrySet()) {
+            Rig.Bone bone = rig.bones.get(entry.getKey());
+            if (bone == null) continue;
+            StudioFrame.BonePose value = entry.getValue();
+            bone.transform.rotate.set((float)Math.toRadians(value.pitch),
+                    (float)Math.toRadians(value.yaw), (float)Math.toRadians(value.roll));
+            bone.transform.translate.set(value.x, value.y, value.z);
+            bone.transform.scale.set(value.scaleX, value.scaleY, value.scaleZ);
+        }
+    }
 
     public static void toggleRecording(MinecraftClient client) {
         if (recording) stopRecording(); else startRecording();
