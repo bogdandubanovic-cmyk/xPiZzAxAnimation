@@ -11,7 +11,7 @@ import xpizzax.emoticons.client.renderer.VanillaEmoticonsBridge;
 import xpizzax.emoticons.mixin.client.CinematicStudioCameraAccessor;
 import net.minecraft.util.math.Vec3d;
 
-import javax.swing.JFileChooser;
+import javax.swing.JFileChooser;\nimport javax.swing.SwingUtilities;\nimport javax.swing.filechooser.FileNameExtensionFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -230,30 +230,40 @@ public final class CinematicStudio {
         }
     }
 
-    public static boolean saveProjectAs() {
-        JFileChooser chooser = new JFileChooser(DIRECTORY.toFile());
-        chooser.setDialogTitle("Save xPiZzAxAnimation project");
-        chooser.setSelectedFile(DIRECTORY.resolve("cinematic.xpa").toFile());
-        if (chooser.showSaveDialog(null) != JFileChooser.APPROVE_OPTION) return false;
-        Path file = chooser.getSelectedFile().toPath();
-        if (!file.getFileName().toString().toLowerCase().endsWith(".xpa"))
-            file = file.resolveSibling(file.getFileName() + ".xpa");
-        try {
-            Files.createDirectories(file.toAbsolutePath().getParent());
-            Files.writeString(file, GSON.toJson(project), StandardCharsets.UTF_8);
-            return true;
-        } catch (IOException exception) {
-            System.err.println("[xPiZzAxAnimation] Could not save project: " + exception.getMessage());
-            return false;
-        }
+    /** Opens the native project save dialog away from Minecraft's render thread. */
+    public static void saveProjectAs() {
+        final String snapshot = GSON.toJson(project);
+        SwingUtilities.invokeLater(() -> {
+            try {
+                JFileChooser chooser = new JFileChooser(DIRECTORY.toFile());
+                chooser.setDialogTitle("Save xPiZzAxAnimation project");
+                chooser.setSelectedFile(DIRECTORY.resolve("cinematic.xpa").toFile());
+                if (chooser.showSaveDialog(null) != JFileChooser.APPROVE_OPTION) return;
+                Path file = chooser.getSelectedFile().toPath();
+                if (!file.getFileName().toString().toLowerCase().endsWith(".xpa"))
+                    file = file.resolveSibling(file.getFileName() + ".xpa");
+                Files.createDirectories(file.toAbsolutePath().getParent());
+                Files.writeString(file, snapshot, StandardCharsets.UTF_8);
+            } catch (Exception exception) {
+                System.err.println("[xPiZzAxAnimation] Could not save project: " + exception);
+            }
+        });
     }
 
-    public static boolean openProject() {
-        JFileChooser chooser = new JFileChooser(DIRECTORY.toFile());
-        chooser.setDialogTitle("Open xPiZzAxAnimation project");
-        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("xPiZzAxAnimation project (*.xpa)", "xpa"));
-        if (chooser.showOpenDialog(null) != JFileChooser.APPROVE_OPTION) return false;
-        return loadProject(chooser.getSelectedFile().toPath());
+    /** Opens the native project dialog away from Minecraft's render thread. */
+    public static void openProject() {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                JFileChooser chooser = new JFileChooser(DIRECTORY.toFile());
+                chooser.setDialogTitle("Open xPiZzAxAnimation project");
+                chooser.setFileFilter(new FileNameExtensionFilter("xPiZzAxAnimation project (*.xpa)", "xpa"));
+                if (chooser.showOpenDialog(null) != JFileChooser.APPROVE_OPTION) return;
+                Path selected = chooser.getSelectedFile().toPath();
+                MinecraftClient.getInstance().execute(() -> loadProject(selected));
+            } catch (Exception exception) {
+                System.err.println("[xPiZzAxAnimation] Could not open project chooser: " + exception);
+            }
+        });
     }
 
     public static boolean loadLastProject() { return loadProject(DIRECTORY.resolve("last-project.xpa")); }
