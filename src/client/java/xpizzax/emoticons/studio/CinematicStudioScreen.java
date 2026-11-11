@@ -215,13 +215,13 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         boolean selected = mode.equals(value);
         boolean hovered = mx >= x && mx <= x + w && my >= y && my <= y + 20;
         context.fill(x, y, x + w, y + 20, selected ? 0xAA7846A9 : hovered ? 0x775C718D : 0x55313F55);
-        context.drawCenteredTextWithShadow(textRenderer, label, x + w / 2, y + 6, TEXT);
+        context.drawCenteredTextWithShadow(textRenderer, Text.literal(label), x + w / 2, y + 6, TEXT);
     }
 
     private void drawExpression(DrawContext context, String label, String value, int x, int y, int mx, int my) {
         boolean hovered = mx >= x && mx <= x + 54 && my >= y && my <= y + 19;
         context.fill(x, y, x + 54, y + 19, hovered ? 0x997846A9 : 0x66415268);
-        context.drawCenteredTextWithShadow(textRenderer, label, x + 27, y + 5, TEXT);
+        context.drawCenteredTextWithShadow(textRenderer, Text.literal(label), x + 27, y + 5, TEXT);
     }
 
     private int laneColor(int lane) {
@@ -367,7 +367,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (button == 1) cameraDragging = false;
-        if (button == 0) activeSlider = -1;
+        if (button == 0 && activeSlider >= 0) { activeSlider = -1; CinematicStudio.save(); }
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -419,8 +419,13 @@ public final class CinematicStudioScreen extends ForegroundScreen {
     private static String format(float value) { return String.format(Locale.ROOT, "%.2f", value); }
 
     @Override
-    public void close() {
+    public void removed() {
         CinematicStudio.leaveStudio(MinecraftClient.getInstance());
+        super.removed();
+    }
+
+    @Override
+    public void close() {
         MinecraftClient.getInstance().setScreen(parent);
     }
 }
