@@ -201,9 +201,6 @@ public final class CinematicStudioScreen extends ForegroundScreen {
                         frame.keyframe ? 0xFFFFD36A : laneColor(lane));
             }
         }
-        float playhead = CinematicStudio.previewTick();
-        int playX = trackX + (int)(Math.max(0F, Math.min(project.durationTicks, playhead)) * Math.max(1, trackW - 2) / Math.max(1, project.durationTicks));
-        context.fill(playX - 1, firstTrackY - 5, playX + 2, firstTrackY + 66, 0xFFFF5555);
         for (int i = 0; i < count; i++) {
             StudioFrame frame = project.frames.get(i);
             if (!frame.keyframe) continue;
