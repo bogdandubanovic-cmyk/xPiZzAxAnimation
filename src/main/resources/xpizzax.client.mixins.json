@@ -23,7 +23,8 @@
     "ReplayGenderFrameMixin",
     "ReplayGenderLifecycleMixin",
     "ReplayGenderPlayerMixin",
-    "ReplayRpmProfilePacketsMixin"
+    "ReplayRpmProfilePacketsMixin",
+    "CinematicStudioCameraMixin"
   ],
   "injectors": {
     "defaultRequire": 1
