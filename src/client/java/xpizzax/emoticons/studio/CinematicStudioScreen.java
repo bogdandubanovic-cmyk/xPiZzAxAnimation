@@ -72,7 +72,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         x += 52;
         addButton("Open", x, y, 48, b -> CinematicStudio.openProject());
         x += 52;
-        addButton("Folder", x, y, 54, b -> StudioExportSettings.openOutputDirectory());
+        addButton("Folder", x, y, 54, b -> CinematicStudio.openProjectDirectory());
         x += 58;
         addButton("×", x, y, 28, b -> close());
     }
