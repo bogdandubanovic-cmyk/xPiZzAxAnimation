@@ -128,6 +128,20 @@ public final class VanillaEmoticonsBridge {
     public static boolean begin(AbstractClientPlayerEntity player, PlayerEntityRenderer renderer, float tickDelta) {
         return beginEntity(player, renderer, tickDelta);
     }
+    /** Captures the user's own current animation rig without touching ReplayMod. */
+    public static void captureStudioPose(LivingEntity entity, xpizzax.emoticons.studio.StudioFrame frame) {
+        State state = STATES.get(entity);
+        if (state == null && entity instanceof AbstractClientPlayerEntity player) {
+            String skin = desiredModel(player);
+            state = new State(entity, skin);
+            state.lastSeen = clock;
+            STATES.put(entity, state);
+            if (!state.activeListed) { state.activeListed = true; ACTIVE_STATES.add(state); }
+            state.animation.tick(entity);
+            state.lastTick = clock;
+        }
+        if (state != null) state.animation.captureStudioPose(entity, frame);
+    }
     private static Frame current(LivingEntity entity) {
         Frame f=FRAMES.get().peek(); return f != null && f.player == entity ? f : null;
     }

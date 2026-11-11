@@ -4,5 +4,7 @@
   "category.rpmmodels.main": "xPiZzAxAnimation",
   "rpmmodels.ui.personalization": "Personalization",
   "rpmmodels.ui.on": "On",
-  "rpmmodels.ui.off": "Off"
+  "rpmmodels.ui.off": "Off",
+  "key.xpizzaxanimation.studio": "Open cinematic studio",
+  "key.xpizzaxanimation.record": "Start / stop cinematic recording"
 }
