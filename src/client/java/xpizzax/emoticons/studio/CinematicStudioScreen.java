@@ -20,9 +20,9 @@ public final class CinematicStudioScreen extends ForegroundScreen {
     }
 
     @Override protected void init() {
-        panelWidth = Math.min(650, width - 24);
+        panelWidth = Math.min(700, width - 24);
         panelLeft = (width - panelWidth) / 2;
-        panelTop = Math.max(12, (height - 390) / 2);
+        panelTop = Math.max(12, (height - 430) / 2);
         int x = panelLeft + 18, y = panelTop + 48;
         addDrawableChild(ButtonWidget.builder(Text.literal("Load last project"), b -> {
             CinematicStudio.loadLastProject(); clearAndInit();
@@ -32,10 +32,22 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         addDrawableChild(ButtonWidget.builder(Text.literal("Add keyframe"), b -> {
             CinematicStudio.addPoseKeyframe(); clearAndInit();
         }).dimensions(x + 240, y, 105, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("FPS: " + StudioExportSettings.get().fps, b -> {
+            StudioExportSettings.cycleFps(); clearAndInit();
+        }).dimensions(x, y + 28, 100, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Resolution: " + StudioExportSettings.get().width + "x" + StudioExportSettings.get().height), b -> {
+            StudioExportSettings.cycleResolution(); clearAndInit();
+        }).dimensions(x + 106, y + 28, 190, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Quality: " + StudioExportSettings.get().quality), b -> {
+            StudioExportSettings.cycleQuality(); clearAndInit();
+        }).dimensions(x + 302, y + 28, 130, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Choose output folder"), b -> {
+            StudioExportSettings.chooseOutputDirectory(); clearAndInit();
+        }).dimensions(x + 438, y + 28, 150, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Close"), b -> close())
                 .dimensions(panelLeft + panelWidth - 82, y, 64, 20).build());
 
-        int editY = panelTop + 286;
+        int editY = panelTop + 320;
         addEditButtons(x, editY, "Body yaw", "body_yaw");
         addEditButtons(x + 150, editY, "Head yaw", "head_yaw");
         addEditButtons(x + 300, editY, "Head pitch", "head_pitch");
@@ -64,7 +76,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
 
     @Override protected void renderForeground(DrawContext context, int mouseX, int mouseY, float delta) {
         UiTheme.backdrop(context, width, height);
-        UiTheme.panel(context, panelLeft, panelTop, panelWidth, 390);
+        UiTheme.panel(context, panelLeft, panelTop, panelWidth, 430);
         context.drawTextWithShadow(textRenderer, "CINEMATIC STUDIO", panelLeft + 18, panelTop + 16, 0xFFFFFFFF);
         context.drawTextWithShadow(textRenderer,
                 CinematicStudio.isRecording() ? "● RECORDING — press F8 to stop" : "F8: start / stop recording",
@@ -72,7 +84,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         renderWidgets(context, mouseX, mouseY, delta);
 
         StudioProject project = CinematicStudio.project();
-        int timelineY = panelTop + 94;
+        int timelineY = panelTop + 132;
         context.drawTextWithShadow(textRenderer, "TIMELINE · " + project.frames.size() + " sampled frames",
                 panelLeft + 18, timelineY - 18, 0xFFFFFFFF);
         int available = panelWidth - 36;
@@ -98,9 +110,17 @@ public final class CinematicStudioScreen extends ForegroundScreen {
                         panelLeft + 18, timelineY + 38, 0xFF9BA9B5);
             }
         }
+        StudioExportSettings export = StudioExportSettings.get();
         context.drawTextWithShadow(textRenderer,
-                "Select a moment by clicking the timeline. Body, eyes and camera belong to this same project.",
-                panelLeft + 18, panelTop + 250, 0xFF9BA9B5);
+                "Output: " + export.outputDirectory,
+                panelLeft + 18, panelTop + 280, 0xFF9BA9B5);
+        context.drawTextWithShadow(textRenderer,
+                "Export profile: " + export.fps + " FPS  ·  " + export.width + "x" + export.height
+                        + "  ·  " + export.quality + "  ·  " + export.bitrateMbps + " Mbps",
+                panelLeft + 18, panelTop + 296, 0xFF9BA9B5);
+        context.drawTextWithShadow(textRenderer,
+                "Timeline selection edits the same take: camera, body pose and eye expression.",
+                panelLeft + 18, panelTop + 310, 0xFF9BA9B5);
     }
 
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
