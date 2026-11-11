@@ -25,6 +25,7 @@ public final class CinematicStudio {
     private static StudioProject project = new StudioProject();
     private static boolean recording;
     private static boolean livePreview;
+    private static boolean cameraPreview;
     private static int selectedFrame = -1;
     private static long lastSampleTick = Long.MIN_VALUE;
 
@@ -33,6 +34,18 @@ public final class CinematicStudio {
     public static boolean isRecording() { return recording; }
     public static boolean isLivePreview() { return livePreview; }
     public static void toggleLivePreview() { livePreview = !livePreview; }
+    public static boolean isCameraPreview() { return cameraPreview; }
+    public static void toggleCameraPreview() { cameraPreview = !cameraPreview; }
+    public static void applyCamera(Camera camera) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (!cameraPreview || client.player == null || client.world == null) return;
+        StudioFrame selected = selectedFrame();
+        if (selected == null) return;
+        StudioFrame pose = StudioInterpolator.sample(project, selected.tick);
+        if (pose == null) return;
+        camera.setPos(pose.cameraX, pose.cameraY, pose.cameraZ);
+        camera.setRotation(pose.cameraYaw, pose.cameraPitch);
+    }
     public static StudioProject project() { return project; }
     public static int selectedFrameIndex() { return selectedFrame; }
     public static StudioFrame selectedFrame() {
