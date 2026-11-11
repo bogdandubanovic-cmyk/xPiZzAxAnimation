@@ -34,6 +34,8 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         addButton("Delete frame", x+414, y, 92, b -> { CinematicStudio.deleteSelectedFrame(); clearAndInit(); });
         addButton(CinematicStudio.isRecording() ? "Stop take" : "Record take", x+510, y, 100,
                 b -> { CinematicStudio.toggleRecording(MinecraftClient.getInstance()); clearAndInit(); });
+        addButton("Camera path: "+(CinematicStudio.isCameraPreview()?"ON":"OFF"), x+614, y, 142,
+                b -> { CinematicStudio.toggleCameraPreview(); clearAndInit(); });
         addButton("Close", panelLeft+panelWidth-78, y, 62, b -> close());
 
         StudioExportSettings settings = StudioExportSettings.get();
@@ -164,7 +166,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
                 "Export settings are saved; MP4 frame rendering/encoding is not yet connected.",
                 panelLeft+16,panelTop+426,0xFFFFC857);
         context.drawTextWithShadow(textRenderer,
-                "ReplayMod is not controlled by this editor. F8 records this mod's own take.",
+                "ReplayMod is not controlled by this editor. Camera preview is disabled during ReplayMod playback.",
                 panelLeft+16,panelTop+443,0xFF9BA9B5);
     }
 
