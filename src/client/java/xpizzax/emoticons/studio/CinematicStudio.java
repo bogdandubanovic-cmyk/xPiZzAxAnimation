@@ -452,6 +452,22 @@ public final class CinematicStudio {
         }
     }
 
+    /** Open the directory containing saved .xpa takes without blocking Minecraft. */
+    public static void openProjectDirectory() {
+        try {
+            Files.createDirectories(DIRECTORY);
+            if (!java.awt.Desktop.isDesktopSupported()) return;
+            new Thread(() -> {
+                try { java.awt.Desktop.getDesktop().open(DIRECTORY.toFile()); }
+                catch (Exception error) {
+                    System.err.println("[xPiZzAxAnimation] Could not open takes folder: " + error);
+                }
+            }, "xpa-open-takes-folder").start();
+        } catch (IOException error) {
+            System.err.println("[xPiZzAxAnimation] Could not create takes folder: " + error);
+        }
+    }
+
     /** File pickers run outside Minecraft's render thread to avoid client freezes/kicks. */
     public static void saveProjectAs() {
         final String snapshot = GSON.toJson(project);
