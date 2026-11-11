@@ -81,7 +81,7 @@ public final class CinematicStudioScreen extends ForegroundScreen {
         addEditButtons(x+300, cameraMoveY, "Camera Z", "camera_z", .25F);
     }
 
-    private void addButton(String label, int x, int y, int w, java.util.function.Consumer<ButtonWidget> action) {
+    private void addButton(String label, int x, int y, int w, ButtonWidget.PressAction action) {
         addDrawableChild(ButtonWidget.builder(Text.literal(label), action)
                 .dimensions(x, y, w, 20).build());
     }
